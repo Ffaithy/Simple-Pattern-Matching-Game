@@ -20,28 +20,34 @@ class Board
 	class Cell
 	{
 	public:
-		Cell() : x(0), y(0), type(EMPTY), selected(0), direction(Board::Direction::NONE) {};
-		Cell(int type, int x, int y) : x(x), y(y), type(type), selected(false), explode(false), direction(Board::Direction::NONE){};
+		Cell() : x{ 0 }, y{ 0 }, type{ EMPTY }, selected{ 0 }, direction{ Board::Direction::NONE } {};
+		Cell(int ptype, int px, int py) : x{ px }, y{ py }, type{ ptype }, selected{ false }, explode{ false }, direction{ Board::Direction::NONE }{};
 
-		void setSelected(bool selected) { this->selected = selected; }
+		//getters
 		bool isSelected() const { return this->selected; }
-		void setExplode(bool e) { this->explode = e; }
-		bool isExplode() { return explode; }
+		bool isExplode() const { return explode; }
 		int getType() const { return type; }
-		void setType(int type) { this->type = type; }
-		void render() const;
 		std::string getName() const { return getName(type); };
 		int getX() const { return x; }
 		int getY() const { return y; }
+		int getRow() const { return x / width; }
+		int getCol() const { return y / height; }
+		Direction getDirection() const { return this->direction; }
+
+		//setters
+		void setSelected(bool selected) { this->selected = selected; }
+		void setExplode(bool e) { this->explode = e; }
+		void setType(int type) { this->type = type; }
 		void setX(int x) { this->x = x; }
 		void setY(int y) { this->y = y; }
-		Direction getDirection() const { return this->direction; }
-		void setDirection(Direction dir) const { this->direction = dir; }
+		void setDirection(Direction dir) { this->direction = dir; }
 
+		void render() const;
+		
 		static int getWidth() { return width; }
 		static int getHeight() { return height;  }
-		static void setWidth(int width) { width = width; }
-		static void setHeight(int height) { height = height; }
+		static void setWidth(int pwidth) { width = pwidth; }
+		static void setHeight(int pheight) { height = pheight; }
 		static std::string getName(int type) { return NAME_PREFIX + std::to_string(type) + NAME_SUFIX; }
 
 		const static int DEFAULT_WIDTH;
@@ -52,49 +58,62 @@ class Board
 		const static int EMPTY;
 
 	private:
+		static int width;
+		static int height;
 		mutable int type;
 		int x;
 		int y;
 		bool selected;
 		mutable bool explode;
-		static int width;
-		static int height;
-		mutable Board::Direction direction;
+		Board::Direction direction;
 	};
 
 	enum class State
 	{
 		STATE_NONE,
 		STATE_SWAP,
+		STATE_INVALID_SWAP,
 		STATE_EXPLODE,
 		STATE_FILL
 	};
 
 public:
-	Board(std::vector<int> probes, int width = DEFAULT_WIDTH, int height = DEFAULT_HEIGHT);
+	Board(const std::vector<int>& probes, int width = DEFAULT_WIDTH, int height = DEFAULT_HEIGHT);
 	
 	~Board() { probes.clear(); cells.clear(); }
 	void generate();
 	void initRenderer() const;
 	void render();
+	void renderGenerator();
 	void handleInput(int x, int y);
-	bool checkSwap();
-	bool checkLine(int initX, int initY);
-	bool checkCol(int initX, int initY);
-	bool computeLine(int l);
-	bool computeCol(int c);
+
+	//Matching logic 
+
+	//these functions check for matches
+	bool isSwapValid() const;
+	bool isPieceInARowMatch(int row, int col, int type) const;
+	bool isPieceInAColMatch(int row, int col, int type) const;
+
+	//these functions check for matches and mark the matched cells
+	bool rowHasMatches(int row);
+	bool colHasMatches(int col);
+	bool boardHasMatches();
+
 	void update();
 
-	//Animations
+	//Swap Animation
 	void beginSwapAnimation();
-	void SwapAnimation() const;
-	void ComputeSwapCoordinates(const Cell* cell, int& x, int& y) const;
+	void continueSwapAnimation() const;
 	void endSwap();
-	bool checkForExplosion();
 
-	void startFill();
-	void animateFill();
-	bool endFill();
+	//Falling animation
+	void startFall();
+	void animateFall();
+	bool endFall();
+
+	//General animation
+	//Compute next coordinates of a cell, based on its direction
+	void computeCoordinates(const Cell* cell, int& x, int& y) const;
 
 private:
 	const static int DEFAULT_WIDTH = 9;
@@ -119,8 +138,8 @@ private:
 	const int height;
 	std::vector<int> probes;
 	std::vector<std::vector<Cell>> cells;
-	const Cell* selected0;
-	const Cell* selected1;
+	Cell* selected0;
+	Cell* selected1;
 	std::unordered_set<int> linesToExplode;
 	std::unordered_set<int> colsToExplode;
 	std::vector<Cell> generator;

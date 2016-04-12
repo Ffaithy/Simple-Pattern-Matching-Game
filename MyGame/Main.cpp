@@ -72,10 +72,22 @@ int main(int, char**)
 				if (e.type == SDL_MOUSEBUTTONUP)
 				{
 					//Get mouse position
+
+				if (Game::instance().getStop())
+				{
+					Game::instance().reset();
+					Game::instance().continueGame();
+
+					Board& board = Game::instance().getBoard();
+					board.generate();
+				}
+				else
+				{
 					int x, y;
 					SDL_GetMouseState(&x, &y);
 					board.handleInput(x, y);
 					//renderer.update();
+				}
 				}
 		}
 
@@ -90,6 +102,8 @@ int main(int, char**)
 
 		if (Game::instance().getStop() == false)
 		{
+			//board.render();
+			board.update();
 			board.render();
 		}
 		SDL_Color color = { 0, 0, 0 };

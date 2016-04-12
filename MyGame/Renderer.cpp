@@ -1,8 +1,13 @@
-#include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_ttf.h>
 #include <iostream>
 #include "Renderer.h"
+
+const int Renderer::SCREEN_WIDTH = 640;
+const int Renderer::SCREEN_HEIGHT = 640;
+const int Renderer::DEFAULT_FONT_SIZE = 24;
+const SDL_Color Renderer::DEFAULT_TEXT_COLOR{ 0, 0, 0 };
+const SDL_Color Renderer::DEFAULT_CEAR_COLOR{ 255, 255, 255 };
 
 Renderer::Renderer()
 {
@@ -27,37 +32,39 @@ bool Renderer::init()
 	bool success = true;
 
 	//Create window
-	gWindow = SDL_CreateWindow("My Game", 
+	sWindow = SDL_CreateWindow("My Game", 
 								SDL_WINDOWPOS_UNDEFINED, 
 								SDL_WINDOWPOS_UNDEFINED, 
 								SCREEN_WIDTH, 
 								SCREEN_HEIGHT, 
 								SDL_WINDOW_SHOWN);
-	if (gWindow == nullptr)
+	if (sWindow == nullptr)
 	{
 		std::cerr << "Window could not be created! SDL_Error: " << SDL_GetError() << std::endl;
 		success = false;
 	}
 
-	gRenderer = SDL_CreateRenderer(gWindow, -1, SDL_RENDERER_ACCELERATED);
+	//Create renderer
+	sRenderer = SDL_CreateRenderer(sWindow, -1, SDL_RENDERER_ACCELERATED);
 
-	if (gRenderer == NULL)
+	if (sRenderer == nullptr)
 	{
-		printf("Renderer could not be created! SDL Error: %s\n", SDL_GetError());
+		std::cerr << "Renderer could not be created! SDL Error: " << SDL_GetError() << std::endl;
 		success = false;
 	}
 
+	//Initialize SDL_img
 	int imgFlags = IMG_INIT_PNG;
 	if (!(IMG_Init(imgFlags) & imgFlags))
 	{
-		printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
+		std::cerr << "SDL_image could not initialize! SDL_image Error: " << IMG_GetError() << std::endl;
 		success = false;
 	}
 
 	//Initialize SDL_ttf
 	if (TTF_Init() == -1)
 	{
-		printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+		std::cerr << "SDL_ttf could not initialize! SDL_ttf Error: " << TTF_GetError() << std::endl;
 		success = false;
 	}
 
@@ -66,69 +73,30 @@ bool Renderer::init()
 
 void Renderer::close()
 {
-	//Destroy window
+	//Destroy textures
 	for (auto it : textures)
 	{
 		SDL_DestroyTexture(it.second);
 	}
 	textures.clear();
 
-	TTF_CloseFont(gFont);
-	gFont = nullptr;
+	//Destroy font
+	TTF_CloseFont(sFont);
+	sFont = nullptr;
 
-	SDL_DestroyRenderer(gRenderer);
-	SDL_DestroyWindow(gWindow);
-	gWindow = nullptr;
-	gRenderer = nullptr;
-}
+	//Destroy window
+	SDL_DestroyWindow(sWindow);
+	sWindow = nullptr;
 
-void Renderer::loadMedia(std::string name)
-{
-	if (textures.find(name) == textures.end())
-	{
-		SDL_Texture* texture = IMG_LoadTexture(gRenderer, name.c_str());
-		textures.emplace(name, texture);
-	}
+	//Destroy renderer
+	SDL_DestroyRenderer(sRenderer);
+	sRenderer = nullptr;
 }
 
 void Renderer::update()
 {
 	//Update the surface
-	//SDL_UpdateWindowSurface(gWindow);
-
-	SDL_RenderPresent(gRenderer);
-}
-
-void Renderer::drawObject(const std::string name, const int xSrc, const int ySrc, const int xDst, const int yDst, const int height, const int width)
-{
-	//std::cerr << name << std::endl;
-
-	loadMedia(name);
-
-	SDL_Texture* texture = textures.find(name)->second;
-	if (texture == nullptr)
-	{
-		std::cerr << "Unable to load image " << name.c_str() << " SDL Error: " << IMG_GetError() << std::endl;
-	}
-
-	SDL_Rect srcrect{ xSrc, ySrc, width, height };
-	SDL_Rect dstrect{ xDst, yDst, width, height };
-
-	if (width == 0 && height == 0)
-	{
-		SDL_RenderCopy(gRenderer, texture, nullptr, nullptr);
-	}
-	else
-	{
-		SDL_RenderCopy(gRenderer, texture, &srcrect, &dstrect);
-	}
-}
-
-void Renderer::loadBackground(std::string name)
-{
-	SDL_RenderClear(gRenderer);
-	loadMedia(name);
-	drawObject(name, 0, 0, 0, 0, SCREEN_HEIGHT, SCREEN_WIDTH);
+	SDL_RenderPresent(sRenderer);
 }
 
 void Renderer::clear(int x, int y, int width, int height)
@@ -139,11 +107,20 @@ void Renderer::clear(int x, int y, int width, int height)
 	rect.w = width;
 	rect.h = height;
 
-	SDL_SetRenderDrawColor(gRenderer, 255, 255, 255, 0);
-	SDL_RenderFillRect(gRenderer, &rect);
+	SDL_SetRenderDrawColor(sRenderer, DEFAULT_CEAR_COLOR.r, DEFAULT_CEAR_COLOR.g, DEFAULT_CEAR_COLOR.b, 0);
+	SDL_RenderFillRect(sRenderer, &rect);
 }
 
-void Renderer::setTextureAlpha(std::string name, uint8_t alpha)
+void Renderer::loadTexture(const std::string& name)
+{
+	if (textures.find(name) == textures.end())
+	{
+		SDL_Texture* texture = IMG_LoadTexture(sRenderer, name.c_str());
+		textures.emplace(name, texture);
+	}
+}
+
+void Renderer::setTextureAlpha(const std::string& name, uint8_t alpha)
 {
 	auto it = textures.find(name);
 	if (it != textures.end())
@@ -156,7 +133,7 @@ void Renderer::setTextureAlpha(std::string name, uint8_t alpha)
 	}
 }
 
-void Renderer::setTextureBlendModeAlpha(std::string name)
+void Renderer::setTextureBlendModeAlpha(const std::string& name)
 {
 	auto it = textures.find(name);
 	if (it != textures.end())
@@ -169,7 +146,7 @@ void Renderer::setTextureBlendModeAlpha(std::string name)
 	}
 }
 
-void Renderer::setTextureBlendModeNone(std::string name)
+void Renderer::setTextureBlendModeNone(const std::string& name)
 {
 	auto it = textures.find(name);
 	if (it != textures.end())
@@ -182,46 +159,72 @@ void Renderer::setTextureBlendModeNone(std::string name)
 	}
 }
 
-void Renderer::setFontType(std::string name, int size)
+void Renderer::drawBackground(const std::string& name)
 {
-	if (gFont != nullptr)
+	SDL_RenderClear(sRenderer);
+	loadTexture(name);
+
+	const ObjRenderable background {name, 0, 0, 0, 0, SCREEN_HEIGHT, SCREEN_WIDTH};
+	drawObject(background);
+}
+
+void Renderer::drawObject(const ObjRenderable& obj, bool clear)
+{
+	if (clear)
 	{
-		TTF_CloseFont(gFont);
-		gFont = nullptr;
+		this->clear(obj.xDst, obj.yDst, obj.width, obj.height);
 	}
 
-	//Open the font
-	gFont = TTF_OpenFont(name.c_str(), size);
+	loadTexture(obj.name);
 
-	if (gFont == nullptr)
+	auto it = textures.find(obj.name);
+	if (it != textures.end())
 	{
-		printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
+		SDL_Texture* texture = it->second;
+		if (texture == nullptr)
+		{
+			std::cerr << "Unable to load image " << obj.name.c_str() << " SDL Error: " << IMG_GetError() << std::endl;
+			return;
+		}
+
+		SDL_Rect srcrect{ obj.xSrc, obj.ySrc, obj.width, obj.height };
+		SDL_Rect dstrect{ obj.xDst, obj.yDst, obj.width, obj.height };
+
+		SDL_RenderCopy(sRenderer, texture, &srcrect, &dstrect);
 	}
 }
 
-void Renderer::drawText(std::string message, int x, int y)
+void Renderer::drawText(const TextRenderable& txt, bool clear)
 {
-	SDL_Color color = { 0, 0, 0 };
-	SDL_Surface* surfaceMessage = TTF_RenderText_Solid(gFont, message.c_str(), color); // as TTF_RenderText_Solid could only be used on SDL_Surface then you have to create the surface first
+	//Clear the area
+	this->clear(txt.x, txt.y, txt.width, txt.height);
 
-	SDL_Texture* Message = SDL_CreateTextureFromSurface(gRenderer, surfaceMessage); //now you can convert it into a texture
+	SDL_Surface* surfaceMessage = TTF_RenderText_Solid(sFont, txt.text.c_str(), DEFAULT_TEXT_COLOR);
+	SDL_Texture* message = SDL_CreateTextureFromSurface(sRenderer, surfaceMessage); 
 
+	//Draw the text centered in the cleared rectangle
 	int w, h;
-	TTF_SizeText(gFont, message.c_str(), &w, &h);
+	TTF_SizeText(sFont, txt.text.c_str(), &w, &h);
+	SDL_Rect rectMessage {txt.x + (txt.width - w)/2, txt.y + (txt.height - h)/2, w, h}; 
+	SDL_RenderCopy(sRenderer, message, nullptr, &rectMessage);
 
-	SDL_Rect Message_rect; //create a rect
-	Message_rect.x = x;  //controls the rect's x coordinate 
-	Message_rect.y = y; // controls the rect's y coordinte
-	Message_rect.w = w; // controls the width of the rect
-	Message_rect.h = h; // controls the height of the rect
-
-	//Mind you that (0,0) is on the top left of the window/screen, think a rect as the text's box, that way it would be very simple to understance
-
-	//Now since it's a texture, you have to put RenderCopy in your game loop area, the area where the whole code executes
-
-	clear(x, y, w, h);
-	SDL_RenderCopy(gRenderer, Message, nullptr, &Message_rect);
-
-	SDL_DestroyTexture(Message);
+	SDL_DestroyTexture(message);
 	SDL_FreeSurface(surfaceMessage);
+}
+
+void Renderer::setFontType(const std::string& name, int size)
+{
+	if (sFont != nullptr)
+	{
+		TTF_CloseFont(sFont);
+		sFont = nullptr;
+	}
+
+	//Open the font
+	sFont = TTF_OpenFont(name.c_str(), size);
+
+	if (sFont == nullptr)
+	{
+		std::cerr << "Failed to load lazy font! SDL_ttf Error: " << TTF_GetError() << std::endl;
+	}
 }

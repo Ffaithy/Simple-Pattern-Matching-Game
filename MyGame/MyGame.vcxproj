@@ -91,6 +91,7 @@
     <ClInclude Include="C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include\SDL_image.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="Game.h" />
+    <ClInclude Include="IRenderable.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="Timer.h" />
   </ItemGroup>

@@ -28,7 +28,7 @@ void Board::Cell::render() const
 	Renderer& renderer = Game::instance().getRenderer();
 
 	//first clear
-	renderer.clear(OFFSET_X + y * Cell::getWidth(), OFFSET_Y + x * Cell::getHeight(), Cell::getWidth(), Cell::getHeight());
+	//renderer.clear(OFFSET_X + y, OFFSET_Y + x, Cell::getWidth(), Cell::getHeight());
 
 	if (explode)
 	{
@@ -58,18 +58,18 @@ void Board::Cell::render() const
 	if (type != EMPTY)
 	{
 		//draw image
-		renderer.drawObject(getName(), 0, 0, OFFSET_X + y * Cell::getWidth(), OFFSET_Y + x * Cell::getHeight(), Cell::getWidth(), Cell::getHeight());
+		renderer.drawObject(ObjRenderable{ getName(), 0, 0, OFFSET_X + y, OFFSET_Y + x, Cell::getWidth(), Cell::getHeight() }, true);
 
 		//render selection
 		if (isSelected())
 		{
-			renderer.drawObject(Cell::SELECTOR, 0, 0, OFFSET_X + y * Cell::getWidth(), OFFSET_Y + x * Cell::getHeight(), Cell::getWidth(), Cell::getHeight());
+			renderer.drawObject(ObjRenderable{ Cell::SELECTOR, 0, 0, OFFSET_X + y, OFFSET_Y + x, Cell::getWidth(), Cell::getHeight() }, false);
 		}
 	}
 
 }
 
-Board::Board(std::vector<int> probes, int width, int height) :
+Board::Board(const std::vector<int>& probes, int width, int height) :
 		probes(probes),
 		width(width),
 		height(height),
@@ -124,7 +124,7 @@ void Board::generate()
 				number = rand() % sz;
 			} while ((checkSimX && (number == prevX)) || (checkSimY && (number == prevY)) );
 
-			cells[i][j] = { probes[number], i, j };
+			cells[i][j] = { probes[number], i * Cell::getWidth(), j * Cell::getHeight() };
 		}
 }
 
@@ -133,13 +133,13 @@ void Board::initRenderer() const
 	Renderer& renderer = Game::instance().getRenderer();
 	for (unsigned int i = 0; i < probes.size(); ++i)
 	{
-		renderer.loadMedia(Cell::getName(probes[i]));
+		renderer.loadTexture(Cell::getName(probes[i]));
 	}
 
-	renderer.loadMedia(Cell::SELECTOR);
+	renderer.loadTexture(Cell::SELECTOR);
 }
 
-void Board::render()
+void Board::update()
 {
 	Renderer& renderer = Game::instance().getRenderer();
 	if (STATE == State::STATE_SWAP)
@@ -147,7 +147,7 @@ void Board::render()
 		if (STEP < NUM_SWAP_STEPS)
 		{
 			STEP++;
-			SwapAnimation();
+			continueSwapAnimation();
 		}
 		else
 		{
@@ -161,20 +161,40 @@ void Board::render()
 		return;
 	}
 
+	if (STATE == State::STATE_INVALID_SWAP)
+	{
+		if (STEP < NUM_SWAP_STEPS)
+		{
+			STEP++;
+			continueSwapAnimation();
+		}
+		else
+		{
+			//endSwap();
+			STEP = 0;
+			STATE = State::STATE_NONE;
+			selected0->setDirection(Direction::NONE);
+			selected1->setDirection(Direction::NONE);
+			selected0 = nullptr;
+			selected1 = nullptr;
+		}
+		return;
+	}
+
 	if (STATE == State::STATE_FILL)
 	{
 		if (STEP < NUM_SWAP_STEPS)
 		{
 			STEP++;
-			animateFill();
+			animateFall();
 		}
 		else
 		{
-			if (!endFill())
+			if (!endFall())
 			{
 				STEP = 0;
 
-				if (checkForExplosion())
+				if (boardHasMatches())
 				{
 					STATE = State::STATE_EXPLODE;
 				}
@@ -189,18 +209,18 @@ void Board::render()
 			else
 			{
 				STEP = 0;
-				startFill();
+				startFall();
 			}
 		}
 
 		return;
 	}
 
-	for (int i = 0; i < width; ++i)
+	/*for (int i = 0; i < width; ++i)
 		for (int j = 0; j < height; ++j)
 		{
 			cells[i][j].render();
-		}
+		}*/
 
 	//update state
 	if (STATE == State::STATE_EXPLODE)
@@ -212,9 +232,21 @@ void Board::render()
 			//STATE = State::STATE_NONE;
 			STATE = State::STATE_FILL;
 			Board::STEP = 0;
-			startFill();
+			startFall();
 		}
 	}
+}
+
+void Board::render()
+{
+	renderGenerator();
+
+	for (int i = 0; i < width; ++i)
+	for (int j = 0; j < height; ++j)
+	{
+	cells[i][j].render();
+	}
+
 }
 
 void Board::handleInput(int x, int y)
@@ -233,8 +265,11 @@ void Board::handleInput(int x, int y)
 	}
 	else
 	{
-		int oldX = selected0->getX();
-		int oldY = selected0->getY();
+		//int oldX = selected0->getX();
+		//int oldY = selected0->getY();
+
+		int oldX = selected0->getRow();
+		int oldY = selected0->getCol();
 
 		if (std::abs(cellX - oldX) + std::abs(cellY - oldY) > 1)
 		{
@@ -304,11 +339,10 @@ void Board::handleInput(int x, int y)
 	}
 }
 
-bool Board::checkLine(int initX, int initY)
+bool Board::isPieceInARowMatch(int initX, int initY, int type) const
 {
 	int x = initX;
 	int y = initY;
-	int type = cells[initX][initY].getType();
 	int count = 1;
 	bool valid = false;
 
@@ -340,11 +374,10 @@ bool Board::checkLine(int initX, int initY)
 	return valid;
 }
 
-bool Board::checkCol(int initX, int initY)
+bool Board::isPieceInAColMatch(int initX, int initY, int type) const
 {
 	int x = initX;
 	int y = initY;
-	int type = cells[initX][initY].getType();
 	int count = 1;
 	bool valid = false;
 
@@ -376,17 +409,22 @@ bool Board::checkCol(int initX, int initY)
 	return valid;
 }
 
-bool Board::checkSwap()
+bool Board::isSwapValid() const
 {
 	//check selected0 and selected1
-	return (checkLine(selected0->getX(), selected0->getY()) || checkCol(selected0->getX(), selected0->getY()) ||
-			checkLine(selected1->getX(), selected1->getY()) || checkCol(selected1->getX(), selected1->getY()));
+	if (selected0->getDirection() == Direction::LEFT || selected0->getDirection() == Direction::RIGHT)
+	{
+		return (isPieceInAColMatch(selected0->getRow(), selected0->getCol(), selected0->getType()) || isPieceInAColMatch(selected1->getRow(), selected1->getCol(), selected1->getType()));
+	}
+
+	return (isPieceInARowMatch(selected0->getRow(), selected0->getCol(), selected0->getType()) ||
+		isPieceInARowMatch(selected1->getRow(), selected1->getCol(), selected1->getType()));
 	
 }
 
-bool Board::computeLine(int l)
+bool Board::rowHasMatches(int l)
 {
-	std::cerr << "computeLine " << l << std::endl;
+	std::cerr << "rowHasMatches " << l << std::endl;
 
 	bool hasMatch = false;
 	int count = 1;
@@ -408,7 +446,7 @@ bool Board::computeLine(int l)
 
 		if (count >= NUM_MATCHES && type != Cell::EMPTY)
 		{
-			for (int i = startIdx; i < ((type == cells[l][finalIdx].getType()) && (finalIdx == width - 1) ? (finalIdx + 1) : finalIdx); ++i)
+			for (int i = startIdx; i < ((type == cells[l][finalIdx].getType() && (finalIdx == width - 1)) ? (finalIdx + 1) : finalIdx); ++i)
 			{
 				std::cerr << "EXPLODE [ " << l << " ][ " << i << " ]" << std::endl;
 				cells[l][i].setExplode(true);
@@ -430,9 +468,9 @@ bool Board::computeLine(int l)
 	return hasMatch;
 }
 
-bool Board::computeCol(int c)
+bool Board::colHasMatches(int c)
 {
-	std::cerr << "computeCol " << c << std::endl;
+	std::cerr << "colHasMatches " << c << std::endl;
 
 	bool hasMatch = false;
 	int count = 1;
@@ -454,7 +492,7 @@ bool Board::computeCol(int c)
 
 		if (count >= NUM_MATCHES && type != Cell::EMPTY)
 		{
-			for (int i = startIdx; i < ((type == cells[finalIdx][c].getType()) && (finalIdx == height - 1) ? finalIdx + 1 : finalIdx); ++i)
+			for (int i = startIdx; i < ((type == cells[finalIdx][c].getType() && (finalIdx == height - 1)) ? (finalIdx + 1) : finalIdx); ++i)
 			{
 				std::cerr << "EXPLODE [ " << i << " ][ " << c << " ]" << std::endl;
 				cells[i][c].setExplode(true);
@@ -476,7 +514,7 @@ bool Board::computeCol(int c)
 	return hasMatch;
 }
 
-void Board::update()
+/*void Board::update()
 {
 	int points = 0;
 
@@ -511,7 +549,7 @@ void Board::update()
 
 	EventScore e(points);
 	Game::instance().onNotify(&e);
-}
+}*/
 
 //Animations
 void Board::beginSwapAnimation()
@@ -524,26 +562,26 @@ void Board::beginSwapAnimation()
 	STEP = 0;
 	STATE = State::STATE_SWAP;
 
-	if (selected0->getX() == selected1->getX()) ///line swap
+	if (selected0->getRow() == selected1->getRow()) ///line swap
 	{
-		const Cell *min = (selected0->getY() < selected1->getY()) ? selected0 : selected1;
-		const Cell *max = (selected0->getY() < selected1->getY()) ? selected1 : selected0;
+		Cell *min = (selected0->getCol() < selected1->getCol()) ? selected0 : selected1;
+		Cell *max = (selected0->getCol() < selected1->getCol()) ? selected1 : selected0;
 
 		min->setDirection(Direction::RIGHT);
 		max->setDirection(Direction::LEFT);
 	}
 	else
-		if (selected0->getY() == selected1->getY()) ///col swap
+		if (selected0->getCol() == selected1->getCol()) ///col swap
 		{
-			const Cell *min = (selected0->getX() < selected1->getX()) ? selected0 : selected1;
-			const Cell *max = (selected0->getX() < selected1->getX()) ? selected1 : selected0;
+			Cell *min = (selected0->getRow() < selected1->getRow()) ? selected0 : selected1;
+			Cell *max = (selected0->getRow() < selected1->getRow()) ? selected1 : selected0;
 
 			min->setDirection(Direction::DOWN);
 			max->setDirection(Direction::UP);
 		}
 }
 
-void Board::SwapAnimation() const
+void Board::continueSwapAnimation() const
 {
 	std::cerr << "ANIMATE SWAP " << std::endl;
 
@@ -555,33 +593,44 @@ void Board::SwapAnimation() const
 	
 	//compute new coordinates
 	int x0, y0, x1, y1;
-	ComputeSwapCoordinates(selected0, x0, y0);
-	ComputeSwapCoordinates(selected1, x1, y1);
+	computeCoordinates(selected0, x0, y0);
+	computeCoordinates(selected1, x1, y1);
+
+	/*!!!!*/
+	selected0->setX(x0);
+	selected0->setY(y0);
+	selected1->setX(x1);
+	selected1->setY(y1);
+	/*!!!!*/
 
 	//draw image
-	renderer.drawObject(selected0->getName(), 0, 0, OFFSET_X + y0, OFFSET_Y + x0, Cell::getWidth(), Cell::getHeight());
-	renderer.drawObject(selected1->getName(), 0, 0, OFFSET_X + y1, OFFSET_Y + x1, Cell::getWidth(), Cell::getHeight());
+	//renderer.drawObject(ObjRenderable{ selected0->getName(), 0, 0, OFFSET_X + y0, OFFSET_Y + x0, Cell::getWidth(), Cell::getHeight() });
+	//renderer.drawObject(ObjRenderable{ selected1->getName(), 0, 0, OFFSET_X + y1, OFFSET_Y + x1, Cell::getWidth(), Cell::getHeight() });
 }
 
-void Board::ComputeSwapCoordinates(const Cell* cell, int& x, int& y) const
+void Board::computeCoordinates(const Cell* cell, int& x, int& y) const
 {
 	switch (cell->getDirection())
 	{
 	case Direction::UP:
-		x = cell->getX() * Cell::getHeight() - STEP * SWAP_DIFF_STEP;
-		y = cell->getY() * Cell::getWidth();
+		//x = cell->getX() - STEP * SWAP_DIFF_STEP;
+		x = cell->getX() - SWAP_DIFF_STEP;
+		y = cell->getY();
 		break;
 	case Direction::DOWN:
-		x = cell->getX() * Cell::getHeight() + STEP * SWAP_DIFF_STEP;
-		y = cell->getY() * Cell::getWidth();
+		//x = cell->getX() + STEP * SWAP_DIFF_STEP;
+		x = cell->getX() + SWAP_DIFF_STEP;
+		y = cell->getY();
 		break;
 	case Direction::LEFT:
-		x = cell->getX() * Cell::getHeight();
-		y = cell->getY() * Cell::getWidth() - STEP * SWAP_DIFF_STEP;
+		x = cell->getX();
+		y = cell->getY() - SWAP_DIFF_STEP;
+		//y = cell->getY() - STEP * SWAP_DIFF_STEP;
 		break;
 	case Direction::RIGHT:
-		x = cell->getX() * Cell::getHeight();
-		y = cell->getY() * Cell::getWidth() + STEP * SWAP_DIFF_STEP;
+		x = cell->getX();
+		y = cell->getY() + SWAP_DIFF_STEP;
+		//y = cell->getY() + STEP * SWAP_DIFF_STEP;
 		break;
 	default:
 		;
@@ -591,58 +640,100 @@ void Board::ComputeSwapCoordinates(const Cell* cell, int& x, int& y) const
 void Board::endSwap()
 {
 	std::cerr << "end SWAP " << std::endl;
-	int oldX = selected0->getX();
-	int oldY = selected0->getY();
-	int cellX = selected1->getX();
-	int cellY = selected1->getY();
 
-	//swap
-	std::swap(cells[oldX][oldY], cells[cellX][cellY]);
+	bool v = isSwapValid();
 
-	cells[oldX][oldY].setX(oldX);
-	cells[oldX][oldY].setY(oldY);
-	cells[cellX][cellY].setX(cellX);
-	cells[cellX][cellY].setY(cellY);
-
-	bool v = checkSwap();
 	std::string s = v ? "true" : "false";
 	std::cerr << s << std::endl;
 
+	int oldX = selected0->getRow();
+	int oldY = selected0->getCol();
+	int cellX = selected1->getRow();
+	int cellY = selected1->getCol();
+
 	if (v)
 	{
-		computeLine(oldX);
-		if (oldX != cellX)
-			computeLine(cellX);
-		computeCol(oldY);
-		if (oldY != cellY)
-			computeCol(cellY);
-		update();
-	}
+		//swap
+		std::swap(cells[oldX][oldY], cells[cellX][cellY]);
 
-	selected0 = nullptr;
-	selected1 = nullptr;
+		cells[oldX][oldY].setX(oldX * Cell::getWidth());
+		cells[oldX][oldY].setY(oldY * Cell::getHeight());
+		cells[cellX][cellY].setX(cellX * Cell::getWidth());
+		cells[cellX][cellY].setY(cellY * Cell::getHeight());
+
+		rowHasMatches(oldX);
+		if (oldX != cellX)
+			rowHasMatches(cellX);
+		colHasMatches(oldY);
+		if (oldY != cellY)
+			colHasMatches(cellY);
+
+		STATE = State::STATE_EXPLODE;
+		Board::STEP = 0;
+		//update();
+
+		selected0 = nullptr;
+		selected1 = nullptr;
+	}
+	else
+	{
+		Board::STEP = 0;
+		STATE = State::STATE_INVALID_SWAP;
+		
+		/*cells[oldX][oldY].setX(cellX * Cell::getWidth());
+		cells[oldX][oldY].setY(cellY * Cell::getHeight());
+		cells[cellX][cellY].setX(oldX * Cell::getWidth());
+		cells[cellX][cellY].setY(oldY * Cell::getHeight());*/
+
+		switch (selected0->getDirection())
+		{
+		case Direction::UP:
+			selected0->setDirection(Direction::DOWN);
+			selected1->setDirection(Direction::UP);
+			break;
+		case Direction::DOWN:
+			selected0->setDirection(Direction::UP);
+			selected1->setDirection(Direction::DOWN);
+			break;
+		case Direction::LEFT:
+			selected0->setDirection(Direction::RIGHT);
+			selected1->setDirection(Direction::LEFT);
+			break;
+		case Direction::RIGHT:
+			selected0->setDirection(Direction::LEFT);
+			selected1->setDirection(Direction::RIGHT);
+			break;
+		default:
+			;
+		}
+	
+	}
 }
 
-bool Board::checkForExplosion()
+bool Board::boardHasMatches()
 {
 	bool noExplode = false;
 	for (int i = 0; i < height; ++i)
 		//noExplode = noExplode || computeLine(i);
-		if (computeLine(i))
+		if (rowHasMatches(i))
 			noExplode = true;
 
 	for (int i = 0; i < width; ++i)
 		//noExplode = noExplode || computeCol(i);
-		if (computeCol(i))
+		if (colHasMatches(i))
 			noExplode = true;
 
 	if (noExplode)
-		update();
+	{
+		STATE = State::STATE_EXPLODE;
+		Board::STEP = 0;
+		//update();
+	}
 
 	return noExplode;
 }
 
-void Board::startFill()
+void Board::startFall()
 {
 	std::cerr << "START FILL" << std::endl;
  	for (int i = height - 2; i >= 0; --i)
@@ -662,25 +753,55 @@ void Board::startFill()
 	{
 		if (cells[0][j].getDirection() == Direction::DOWN || cells[0][j].getType() == Cell::EMPTY)
 		{
-			generator[j] = { probes[rand() % probes.size()], -1, j };
+			generator[j] = { probes[rand() % probes.size()], -1 * Cell::getWidth(), j * Cell::getHeight() };
 			generator[j].setDirection(Direction::DOWN);
 		}
 	}
 }
 
-void Board::animateFill()
+void Board::renderGenerator()
 {
-	std::cerr << "ANIMATE FILL" << std::endl;
 	Renderer& renderer = Game::instance().getRenderer();
 
 	//first line
 	for (int j = 0; j < width; ++j)
 		if (generator[j].getType() != Cell::EMPTY)
 		{
-			int x, y;
-			ComputeSwapCoordinates(&generator[j], x, y);
-			renderer.drawObject(generator[j].getName(), 0, (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP, OFFSET_X + y, OFFSET_Y + 0, Cell::getHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP, Cell::getWidth());
+		int x, y;
+		computeCoordinates(&generator[j], x, y);
+
+		//generator[j].setX(x);
+		//	generator[j].setY(y);
+
+		//std::cerr << "x = " << x << " y = " << y << std::endl;
+		//std::cerr << "x = " << (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP << " y = " << Cell::getHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP << std::endl;
+
+		renderer.drawObject(ObjRenderable{ generator[j].getName(), 0, (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP, OFFSET_X + y, OFFSET_Y + 0, Cell::getWidth(), Cell::getHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP });
 		}
+
+}
+
+void Board::animateFall()
+{
+	std::cerr << "ANIMATE FILL" << std::endl;
+	Renderer& renderer = Game::instance().getRenderer();
+
+	//first line
+	/*for (int j = 0; j < width; ++j)
+		if (generator[j].getType() != Cell::EMPTY)
+		{
+			int x, y;
+			computeCoordinates(&generator[j], x, y);
+			
+			//generator[j].setX(x);
+		//	generator[j].setY(y);
+
+			//std::cerr << "x = " << x << " y = " << y << std::endl;
+			//std::cerr << "x = " << (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP << " y = " << Cell::getHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP << std::endl;
+
+			renderer.drawObject(ObjRenderable{ generator[j].getName(), 0, (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP, OFFSET_X + y, OFFSET_Y + 0, Cell::getWidth(), Cell::getHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP });
+		}*/
+	//renderGenerator();
 
 	for (int i = height - 1; i >= 0; --i)
 		for (int j = 0; j < width; ++j)
@@ -690,8 +811,13 @@ void Board::animateFill()
 				if (i != height - 1 && (cells[i + 1][j].getDirection() == Direction::DOWN || (cells[i + 1][j].getType() == Cell::EMPTY)))
 				{
 					int x, y;
-					ComputeSwapCoordinates(&cells[i][j], x, y);
-					renderer.drawObject(cells[i][j].getName(), 0, 0, OFFSET_X + y, OFFSET_Y + x, Cell::getWidth(), Cell::getHeight());
+					computeCoordinates(&cells[i][j], x, y);
+
+					/*!!!*/
+					cells[i][j].setX(x);
+					cells[i][j].setY(y);
+
+					//renderer.drawObject(ObjRenderable{ cells[i][j].getName(), 0, 0, OFFSET_X + y, OFFSET_Y + x, Cell::getWidth(), Cell::getHeight() });
 				}
 				else
 				{	
@@ -701,7 +827,7 @@ void Board::animateFill()
 		}
 }
 
-bool Board::endFill()
+bool Board::endFall()
 {
 	std::cerr << "END FILL" << std::endl;
 
@@ -713,13 +839,19 @@ bool Board::endFill()
 			//cells[i][j].setType(Cell::EMPTY);
 			cells[i][j].setType(generator[j].getType());
 			generator[j].setType(Cell::EMPTY);
+			generator[j].setX(j * 60);
+			generator[j].setY(-60);
 			cells[i][j].setDirection(Direction::NONE);
+			cells[i][j].setX(i * Cell::getWidth());
+			cells[i][j].setY(j * Cell::getHeight());
 		}
 		else
 			if ((i > 0) && (cells[i][j].getDirection() == Direction::DOWN || cells[i][j].getType() == Cell::EMPTY))
 			{
 				cells[i][j].setType(cells[i - 1][j].getType());
 				cells[i][j].setDirection(Direction::NONE);
+				cells[i][j].setX(i * Cell::getWidth());
+				cells[i][j].setY(j * Cell::getHeight());
 			}
 		}
 

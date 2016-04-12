@@ -23,6 +23,8 @@ public:
 	void loadGame();
 	void loadLevel();
 	bool getStop() const { return stop; }
+	void continueGame() { stop = false; }
+	void reset();
 
 	void init();
 	void close();
@@ -31,9 +33,16 @@ private:
 
 	static int score;
 	static int numMoves;
+	static int numInitMoves;
 	static int level;
 	static int objScore;
 	static bool stop;
+	static TextRenderable levelStr;
+	static TextRenderable objStr;
+	static TextRenderable movesStr;
+	static TextRenderable scoreStr;
+	static TextRenderable resultStr;
+
 
 	Renderer* renderer;
 	Board* board;

@@ -4,11 +4,9 @@
 #include <string>
 #include <unordered_map>
 #include <cstdint>
-
-struct SDL_Window;
-struct SDL_Renderer;
-struct SDL_Texture;
-typedef struct _TTF_Font TTF_Font;
+#include <SDL.h>
+#include <SDL_ttf.h>
+#include "IRenderable.h"
 
 class Renderer
 {
@@ -17,26 +15,33 @@ public:
 	~Renderer();
 
 	bool init();
-	void loadMedia(std::string name);
 	void close();
 	void update();
 	void clear(int x, int y, int width, int height);
-	void drawObject(const std::string name, const int xSrc = 0, const int ySrc = 0, const int xDst = 0, const int yDst = 0, const int height = 0, const int width = 0);
-	void setTextureAlpha(std::string name, uint8_t alpha);
-	void setTextureBlendModeAlpha(std::string name);
-	void setTextureBlendModeNone(std::string name);
-	void setFontType(std::string, int size);
-	void drawText(std::string message, int x, int y);
-	void loadBackground(std::string name);
 
-public:
-	static const int SCREEN_WIDTH = 640;
-	static const int SCREEN_HEIGHT = 640;
+	//Texture manipulation 
+	void loadTexture(const std::string& name);
+	void setTextureAlpha(const std::string& name, uint8_t alpha);
+	void setTextureBlendModeAlpha(const std::string& name);
+	void setTextureBlendModeNone(const std::string& name);
+	
+	//Object and text rendering
+	void drawBackground(const std::string& name);
+	void drawObject(const ObjRenderable& obj, bool clear = false);
+	void drawText(const TextRenderable& txt, bool clear = false);
+
+	void setFontType(const std::string&, int size = DEFAULT_FONT_SIZE);
 
 private:
-	SDL_Window* gWindow;
-	SDL_Renderer* gRenderer;
-	TTF_Font* gFont;
+	static const int SCREEN_WIDTH;
+	static const int SCREEN_HEIGHT;
+	static const int DEFAULT_FONT_SIZE;
+	static const SDL_Color DEFAULT_TEXT_COLOR;
+	static const SDL_Color DEFAULT_CEAR_COLOR;
+
+	SDL_Window* sWindow;
+	SDL_Renderer* sRenderer;
+	TTF_Font* sFont;
 	std::unordered_map<std::string, SDL_Texture*> textures;
 };
 
