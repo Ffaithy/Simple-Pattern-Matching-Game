@@ -32,15 +32,17 @@ class TextRenderable
 
 public:
 	TextRenderable() = delete;
-	TextRenderable(const std::string& ptext, int px, int py, int pwidth, int pheight, int psize) : 
-					text(ptext), x{ px }, y{ py }, width{ pwidth }, height{ pheight }, size{ psize } {};
+	TextRenderable(const std::string& ptext, int px, int py, int psize) : 
+		text( ptext ), x{ px }, y{ py }, size{ psize } {};
+
+	void setText(const std::string& ptext) { text = ptext; }
+	void setAddText(const std::string& paddtext) { addText = paddtext;  }
 
 private:
 	std::string text;
+	std::string addText;
 	int x;
 	int y;
-	int width;
-	int height;
 	int size;
 };
 

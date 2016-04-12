@@ -39,8 +39,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\lib\x86;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\lib\x86;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\Personal\SDL2_ttf-2.0.14\include;D:\Personal\SDL2_image-2.0.1\include;D:\Personal\SDL2-2.0.4\include;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\Personal\SDL2_ttf-2.0.14\lib\x86;D:\Personal\SDL2_image-2.0.1\lib\x86;D:\Personal\SDL2-2.0.4\lib\x86;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\lib\x86;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>

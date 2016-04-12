@@ -196,16 +196,16 @@ void Renderer::drawObject(const ObjRenderable& obj, bool clear)
 
 void Renderer::drawText(const TextRenderable& txt, bool clear)
 {
-	//Clear the area
-	this->clear(txt.x, txt.y, txt.width, txt.height);
 
-	SDL_Surface* surfaceMessage = TTF_RenderText_Solid(sFont, txt.text.c_str(), DEFAULT_TEXT_COLOR);
+	SDL_Surface* surfaceMessage = TTF_RenderText_Solid(sFont, (txt.text + txt.addText).c_str(), DEFAULT_TEXT_COLOR);
 	SDL_Texture* message = SDL_CreateTextureFromSurface(sRenderer, surfaceMessage); 
 
-	//Draw the text centered in the cleared rectangle
 	int w, h;
 	TTF_SizeText(sFont, txt.text.c_str(), &w, &h);
-	SDL_Rect rectMessage {txt.x + (txt.width - w)/2, txt.y + (txt.height - h)/2, w, h}; 
+
+	//Clear the area
+	this->clear(txt.x, txt.y, w, h);
+	SDL_Rect rectMessage {txt.x, txt.y, w, h}; 
 	SDL_RenderCopy(sRenderer, message, nullptr, &rectMessage);
 
 	SDL_DestroyTexture(message);

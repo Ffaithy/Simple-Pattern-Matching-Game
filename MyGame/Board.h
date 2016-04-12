@@ -30,8 +30,8 @@ class Board
 		std::string getName() const { return getName(type); };
 		int getX() const { return x; }
 		int getY() const { return y; }
-		int getRow() const { return x / width; }
-		int getCol() const { return y / height; }
+		int getRow() const { return y / width; }
+		int getCol() const { return x / height; }
 		Direction getDirection() const { return this->direction; }
 
 		//setters
@@ -78,14 +78,17 @@ class Board
 	};
 
 public:
-	Board(const std::vector<int>& probes, int width = DEFAULT_WIDTH, int height = DEFAULT_HEIGHT);
+	Board(const std::vector<int>& mProbes, int width = DEFAULT_WIDTH, int height = DEFAULT_HEIGHT);
 	
-	~Board() { probes.clear(); cells.clear(); }
+	~Board() { mProbes.clear(); mCells.clear(); }
+
+	void setProbes(const std::vector<int>& probes);
 	void generate();
 	void initRenderer() const;
 	void render();
 	void renderGenerator();
 	void handleInput(int x, int y);
+	void update();
 
 	//Matching logic 
 
@@ -98,8 +101,7 @@ public:
 	bool rowHasMatches(int row);
 	bool colHasMatches(int col);
 	bool boardHasMatches();
-
-	void update();
+	void computeScore();
 
 	//Swap Animation
 	void beginSwapAnimation();
@@ -131,18 +133,19 @@ private:
 	static State STATE;
 	
 	//Swap animation
-	const static int NUM_SWAP_STEPS = 30;
-	const static int SWAP_DIFF_STEP = 2;
+	const static int NUM_SWAP_STEPS = 15;
+	const static int SWAP_DIFF_STEP = 4;
 
 	const int width;
 	const int height;
-	std::vector<int> probes;
-	std::vector<std::vector<Cell>> cells;
-	Cell* selected0;
-	Cell* selected1;
-	std::unordered_set<int> linesToExplode;
-	std::unordered_set<int> colsToExplode;
-	std::vector<Cell> generator;
+	std::vector<int> mProbes;
+	std::vector<std::vector<Cell>> mCells;
+	Cell* mSelected0;
+	Cell* mSelected1;
+	std::unordered_set<int> mLinesToExplode;
+	std::unordered_set<int> mColsToExplode;
+	std::vector<Cell> mGenerator;
+	bool mBlockInput;
 };
 
 #endif

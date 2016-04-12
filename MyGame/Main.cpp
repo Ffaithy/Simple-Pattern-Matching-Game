@@ -22,25 +22,14 @@ int main(int, char**)
 	//Event handler
 	SDL_Event e;
 
-	//Game loop
-	//time_t previous;
-	//time(&previous);
-	//double lag = 0;
-
 	//The frames per second timer
-	LTimer fpsTimer;
+	Timer fpsTimer;
 
 	//The frames per second cap timer
-	LTimer capTimer;
-
-	Renderer& renderer = Game::instance().getRenderer();
-	
-	renderer.setFontType("./fonts/ANUDI.ttf", 24);
+	Timer capTimer;
 
 	Board& board = Game::instance().getBoard();
 	board.generate();
-	//board.render();
-	//renderer.update();
 
 	//Start counting frames per second
 	int countedFrames = 0;
@@ -48,16 +37,6 @@ int main(int, char**)
 
 	while (!quit)
 	{
-		//time_t current;
-		//time(&current);
-		//double elapsed = difftime(current, previous);
-		//previous = current;
-		//lag += elapsed;
-
-		//TODO
-		//processInput();
-		//Handle events on queue
-
 		//Start cap timer
 		capTimer.start();
 
@@ -72,22 +51,10 @@ int main(int, char**)
 				if (e.type == SDL_MOUSEBUTTONUP)
 				{
 					//Get mouse position
-
-				if (Game::instance().getStop())
-				{
-					Game::instance().reset();
-					Game::instance().continueGame();
-
-					Board& board = Game::instance().getBoard();
-					board.generate();
-				}
-				else
-				{
 					int x, y;
 					SDL_GetMouseState(&x, &y);
-					board.handleInput(x, y);
-					//renderer.update();
-				}
+
+					Game::instance().handleInput(x, y);
 				}
 		}
 
@@ -100,14 +67,8 @@ int main(int, char**)
 
 		//std::cerr << avgFPS << std::endl;
 
-		if (Game::instance().getStop() == false)
-		{
-			//board.render();
-			board.update();
-			board.render();
-		}
-		SDL_Color color = { 0, 0, 0 };
-		renderer.update();
+		Game::instance().update();
+
 		++countedFrames;
 
 		//If frame finished early
@@ -117,21 +78,6 @@ int main(int, char**)
 			//Wait remaining time
 			SDL_Delay(SCREEN_TICK_PER_FRAME - frameTicks);
 		}
-
-		//while (lag > MS_PER_UPDATE)
-		//{
-			//TODO UPDATE GAME WORLD
-			//update();
-			//lag -= MS_PER_UPDATE;
-		//}
-
-		//TODO
-		//render(lag/MS_PER_UPDATE);
-		//Apply the image
-		
-
-		//Update the surface
-		
 	}
 
 	Game::instance().close();
