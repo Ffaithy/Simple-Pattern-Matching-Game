@@ -139,6 +139,9 @@ void Board::handleInput(int x, int y)
 		int cRow = (y - OFFSET_Y) / Cell::getDefaultHeight();
 		std::cerr << cCol << " " << cRow << std::endl;
 
+		if (cCol < 0 || cCol >= DEFAULT_WIDTH || cRow < 0 || cRow >= DEFAULT_HEIGHT)
+			return;
+
 		//new selection, no previous selection exists
 		if (mSelected0 == nullptr)
 		{
