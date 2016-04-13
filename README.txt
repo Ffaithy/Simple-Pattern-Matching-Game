@@ -8,6 +8,7 @@ The project is developed in C++, compiled with Visual Studio 2013.
 Additional libraries: SDL2, SDL2_image (for loading PNGs), SDL2_ttf (for text rendering).
 
 Rules:
+* The FPS is limited at 60.
 * The board is populated with random balls.
 * User must match at least 3 balls of same colour.
 * The matched balls explode in a fading animation.
