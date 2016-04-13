@@ -99,6 +99,7 @@ void Renderer::update()
 	SDL_RenderPresent(sRenderer);
 }
 
+//Clear an area
 void Renderer::clear(int x, int y, int width, int height)
 {
 	SDL_Rect rect;
@@ -111,6 +112,7 @@ void Renderer::clear(int x, int y, int width, int height)
 	SDL_RenderFillRect(sRenderer, &rect);
 }
 
+//The textures are stored in a map
 void Renderer::loadTexture(const std::string& name)
 {
 	if (textures.find(name) == textures.end())
@@ -225,6 +227,6 @@ void Renderer::setFontType(const std::string& name, int size)
 
 	if (sFont == nullptr)
 	{
-		std::cerr << "Failed to load lazy font! SDL_ttf Error: " << TTF_GetError() << std::endl;
+		std::cerr << "Failed to load font! SDL_ttf Error: " << TTF_GetError() << std::endl;
 	}
 }

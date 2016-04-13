@@ -5,76 +5,19 @@
 #include <string>
 #include <unordered_set>
 #include <cstdint>
+#include "AnimationManager.h"
+#include "AnimationManager.cpp"
+#include "Cell.h"
 
 class Board
 {
-	enum class Direction
-	{
-		NONE,
-		UP,
-		DOWN,
-		LEFT,
-		RIGHT
-	};
-
-	class Cell
-	{
-	public:
-		Cell() : x{ 0 }, y{ 0 }, type{ EMPTY }, selected{ 0 }, direction{ Board::Direction::NONE } {};
-		Cell(int ptype, int px, int py) : x{ px }, y{ py }, type{ ptype }, selected{ false }, explode{ false }, direction{ Board::Direction::NONE }{};
-
-		//getters
-		bool isSelected() const { return this->selected; }
-		bool isExplode() const { return explode; }
-		int getType() const { return type; }
-		std::string getName() const { return getName(type); };
-		int getX() const { return x; }
-		int getY() const { return y; }
-		int getRow() const { return y / width; }
-		int getCol() const { return x / height; }
-		Direction getDirection() const { return this->direction; }
-
-		//setters
-		void setSelected(bool selected) { this->selected = selected; }
-		void setExplode(bool e) { this->explode = e; }
-		void setType(int type) { this->type = type; }
-		void setX(int x) { this->x = x; }
-		void setY(int y) { this->y = y; }
-		void setDirection(Direction dir) { this->direction = dir; }
-
-		void render() const;
-		
-		static int getWidth() { return width; }
-		static int getHeight() { return height;  }
-		static void setWidth(int pwidth) { width = pwidth; }
-		static void setHeight(int pheight) { height = pheight; }
-		static std::string getName(int type) { return NAME_PREFIX + std::to_string(type) + NAME_SUFIX; }
-
-		const static int DEFAULT_WIDTH;
-		const static int DEFAULT_HEIGHT;
-		const static std::string NAME_PREFIX; 
-		const static std::string NAME_SUFIX;
-		const static std::string SELECTOR;
-		const static int EMPTY;
-
-	private:
-		static int width;
-		static int height;
-		mutable int type;
-		int x;
-		int y;
-		bool selected;
-		mutable bool explode;
-		Board::Direction direction;
-	};
-
 	enum class State
 	{
 		STATE_NONE,
 		STATE_SWAP,
 		STATE_INVALID_SWAP,
 		STATE_EXPLODE,
-		STATE_FILL
+		STATE_FALL
 	};
 
 public:
@@ -83,28 +26,34 @@ public:
 	~Board() { mProbes.clear(); mCells.clear(); }
 
 	void setProbes(const std::vector<int>& probes);
-	void generate();
-	void initRenderer() const;
-	void render();
+	//generate the cells randomly
+	void generate();	
+	//make renderer load the necessary media 
+	void initRenderer() const; 
+	//draw the board on screen
+	void render();		
+	//initializes the additional row for filling blank spaces on the board
 	void renderGenerator();
+	//Handle the mouse click
 	void handleInput(int x, int y);
+	//Update the state of the Board
 	void update();
 
-	//Matching logic 
+	/** MATCHING LOGIC **/
 
-	//these functions check for matches
-	bool isSwapValid() const;
-	bool isPieceInARowMatch(int row, int col, int type) const;
-	bool isPieceInAColMatch(int row, int col, int type) const;
+	//these function returns true if a swap is valid and also performs the swap
+	bool isSwapValid();
 
 	//these functions check for matches and mark the matched cells
 	bool rowHasMatches(int row);
 	bool colHasMatches(int col);
 	bool boardHasMatches();
+	//computes the score based on the cells marked as to be exploded
 	void computeScore();
 
+	/** ANIMATIONS */
+
 	//Swap Animation
-	void beginSwapAnimation();
 	void continueSwapAnimation() const;
 	void endSwap();
 
@@ -113,10 +62,6 @@ public:
 	void animateFall();
 	bool endFall();
 
-	//General animation
-	//Compute next coordinates of a cell, based on its direction
-	void computeCoordinates(const Cell* cell, int& x, int& y) const;
-
 private:
 	const static int DEFAULT_WIDTH = 9;
 	const static int DEFAULT_HEIGHT = 9;
@@ -124,27 +69,34 @@ private:
 	const static int OFFSET_Y;
 	const static int OFFSET_X;
 
+	//Explode animation constant
 	const static int NUM_EXPLODE_STEPS = 30;
-	const static uint8_t EXPLODE_DIFF_STEP = 8;
-	const static uint8_t MAX_ALPHA = 255;
-	const static uint8_t INIT_ALPHA = 240;
 
+	//track the animation
 	static int STEP;
+	//store the current state
 	static State STATE;
 	
-	//Swap animation
+	//Swap animation constants
 	const static int NUM_SWAP_STEPS = 15;
 	const static int SWAP_DIFF_STEP = 4;
 
+	//Data members
 	const int width;
 	const int height;
 	std::vector<int> mProbes;
 	std::vector<std::vector<Cell>> mCells;
 	Cell* mSelected0;
 	Cell* mSelected1;
+	//Component for moving the cells on the screen
+	AnimationManager<Cell> mAnimationManager;
+	//Caches the lines that have matches
 	std::unordered_set<int> mLinesToExplode;
+	//Caches the columns that have matches
 	std::unordered_set<int> mColsToExplode;
+	//Generates new random values to fill the empty cells on board
 	std::vector<Cell> mGenerator;
+	//Input enabler
 	bool mBlockInput;
 };
 

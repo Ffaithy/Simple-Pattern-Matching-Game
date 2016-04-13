@@ -5,91 +5,103 @@
 
 Game Game::_instance;
 
+//Initializares for static memmbers
 const int Game::MAX_LEVEL = 2;
 
-int Game::score = 0;
-int Game::objScore = 0;
-int Game::level = 0;
-int Game::numMoves = 0;
-int Game::numInitMoves = 0;
-bool Game::stop = false;
+int Game::mScore = 0;
+int Game::mObjScore = 0;
+int Game::mLevel = 0;
+int Game::mNumMoves = 0;
+int Game::mNumInitMoves = 0;
+bool Game::mStop = false;
 
 const std::string Game::SAVE_FILE { "./save/data.txt" };
 const std::string Game::LEVEL_FILE { "./levels/level" };
 const std::string Game::LEVEL_FILE_EXT { ".txt" };
-const std::string Game::BACKGROUND_IMG { "./assets/background/blue_backing.png" };
+const std::string Game::BACKGROUND_IMG { "./assets/background/blue_backing.png" }; 
 const std::string Game::FONT_TYPE { "./fonts/ANUDI.ttf" };
 
-TextRenderable Game::levelStr { "Level: ", 30, 10, 24};
-TextRenderable Game::objStr { "Objective: ", 370, 10, 24 };
-TextRenderable Game::movesStr { "Moves left: ", 310, 50, 24 };
-TextRenderable Game::scoreStr { "Score: ", 30, 50, 24};
-TextRenderable Game::resultStr { "Game over", 100, 250, 24};
-TextRenderable Game::tryAgainStr { "Click to try again", 100, 290, 24 };
+TextRenderable Game::mLevelStr { "Level: ", 30, 10, 24};
+TextRenderable Game::mObjStr { "Objective: ", 370, 10, 24 };
+TextRenderable Game::mMovesStr { "Moves left: ", 310, 50, 24 };
+TextRenderable Game::mScoreStr { "Score: ", 30, 50, 24};
+TextRenderable Game::mResultStr { "Game over", 100, 250, 24};
+TextRenderable Game::mTryAgainStr { "Click to try again", 100, 290, 24 };
 
 void Game::init()
 {
-	renderer = new Renderer();
-	renderer->init();
+	mRenderer = new Renderer();
+	mRenderer->init();
 
 	//load background
-	renderer->drawBackground(BACKGROUND_IMG);
+	mRenderer->drawBackground(BACKGROUND_IMG);
 
-	//show level
-	renderer->setFontType(FONT_TYPE, 24);
+	//set font type
+	mRenderer->setFontType(FONT_TYPE, 24);
 
+	//load the Game from files
+	//the board is created in this step
 	loadGame();
+
+	//initialize the board
+	mBoard->generate();
 }
 
 void Game::close()
 {
-	renderer->close();
-	delete renderer;
-	delete board;
+	//free resources
+	mRenderer->close();
+	delete mRenderer;
+	delete mBoard;
 }
 
 void Game::updateScore(int points)
 {
-	score += points;
-	scoreStr.setAddText(std::to_string(score));
-	renderer->drawText(scoreStr);
+	//update user's score and show the changes on the screen
+	mScore += points;
+	mScoreStr.setAddText(std::to_string(mScore));
+	mRenderer->drawText(mScoreStr);
 }
 
 void Game::updateNumMoves()
 {
-	numMoves--;
-	movesStr.setAddText(std::to_string(numMoves));
-	renderer->drawText(movesStr);
+	//update number of left moves and show the changes on the screen
+	mNumMoves--;
+	mMovesStr.setAddText(std::to_string(mNumMoves));
+	mRenderer->drawText(mMovesStr);
 }
 
 void Game::checkState()
 {
-	if (score >= objScore)
+	//update game state when user passed the current level
+	if (mScore >= mObjScore)
 	{
 		saveGame();
 
-		resultStr.setText("Level Completed");
-		renderer->drawText(resultStr);
-		stop = true;
+		mResultStr.setText("Level Completed");
+		mRenderer->drawText(mResultStr);
+		mStop = true;
 
-		level++;
+		mLevel++;
 
-		if (level > MAX_LEVEL)
-			level = 0;
+		if (mLevel > MAX_LEVEL)
+			mLevel = 0;
 	}
 	else
-		if (numMoves == 0)
+		//update game state when user is out of moves
+		if (mNumMoves == 0)
 		{
-			resultStr.setText("Game Over");
-			renderer->drawText(resultStr);
+			mResultStr.setText("Game Over");
+			mRenderer->drawText(mResultStr);
 
-			tryAgainStr.setText("Click to try again");
-			renderer->drawText(tryAgainStr);
+			mTryAgainStr.setText("Click to try again");
+			mRenderer->drawText(mTryAgainStr);
 
-			stop = true;
+			mStop = true;
 		}
 }
 
+//function to process events
 void Game::onNotify(Event* ev)
 {
 	if (ev != nullptr)
@@ -98,82 +110,98 @@ void Game::onNotify(Event* ev)
 	}
 }
 
+//Input handler
+//Currently, the only event accepted is Mouse click
+//TODO extend this
 void Game::handleInput(int x, int y)
 {
-	if (stop)
+	//if game is stopped, user can either repeat the level or advance to next level
+	if (mStop)
 	{
 		reset();
+
+		//user is able to continue playing
 		continueGame();
-		board->generate();
+		mBoard->generate();
 	}
 	else
 	{
-		board->handleInput(x, y);
+		mBoard->handleInput(x, y);
 	}
 }
 
+//method for updating the Board state & show the changes on the screen
 void Game::update()
 {
-	if (stop == false)
+	if (mStop == false)
 	{
-		board->update();
-
-		if (!stop)
-		{
-			board->render();
-		}
+		mBoard->update();
+		mBoard->render();
+	}
+	else
+	{
+		checkState();
 	}
 
-	renderer->update();
+	mRenderer->update();
 }
 
+//Load the Game from a save file
 void Game::loadGame()
 {
 	std::string line;
 	std::ifstream file;
 	file.open(SAVE_FILE, std::ios::in);
 	
-	level = 0;
-	bool foundData = false;
+	mLevel = 0;
 	if (file.is_open())
 	{
+		//the last level passed by user is on the last line of the file
 		int currLevel = 0;
 		while (std::getline(file, line))
 		{
-			foundData = true;
 			std::string::size_type sz; 
-			int currLevel = std::stoi(line, &sz) + 1;
+			//increase the level from the file with 1 to get the next level for user
+			currLevel = std::stoi(line, &sz) + 1;
 		}
 		file.close();
 
-		if (currLevel >= MAX_LEVEL)
+		if (currLevel > MAX_LEVEL)
 		{
-			level = 0;
+			mLevel = 0;
 		}
 		else
 		{
-			level = foundData ? currLevel + 1 : currLevel;
+			mLevel = currLevel;
 		}
 	}
 
+	//load data level from file
 	loadLevel();
 }
 
+//Load the data level from configuration file
+//Each level is stored in a file
 void Game::loadLevel()
 {
 	std::string line;
 	std::ifstream file;
-	std::string levelFileStr = LEVEL_FILE + std::to_string(level) + LEVEL_FILE_EXT;
+
+	//build the level file name
+	std::string levelFileStr = LEVEL_FILE + std::to_string(mLevel) + LEVEL_FILE_EXT;
 	file.open(levelFileStr, std::ios::in);
 	if (file.is_open())
 	{
 		std::getline(file, line);
 
+		//first line is number of probes
 		std::string::size_type sz;
 		int numProbes = std::stoi(line, &sz);
 
 		std::vector<int> probes;
 		std::getline(file, line);
+
+		//next line contains all the pobes ids, divided by spaces
 		sz = 0;
 		std::string str = line;
 		for (int i = 0; i < numProbes; ++i)
@@ -183,54 +211,59 @@ void Game::loadLevel()
 			probes.push_back(probe);
 		}
 
-		if (board == nullptr)
+		//initializes the board with probes read from file
+		if (mBoard == nullptr)
 		{
-			board = new Board(probes);
+			mBoard = new Board(probes);
 		}
 		else
 		{
-			board->setProbes(probes);
+			mBoard->setProbes(probes);
 		}
 
+		//next line is total number of moves for user
 		std::getline(file, line);
 		sz = 0;
-		numMoves = std::stoi(line.substr(sz), &sz);
-		numInitMoves = numMoves;
+		mNumMoves = std::stoi(line.substr(sz), &sz);
+		mNumInitMoves = mNumMoves;
 
+		//next line is the objective for user
 		std::getline(file, line);
 		sz = 0;
-		objScore = std::stoi(line.substr(sz), &sz);
+		mObjScore = std::stoi(line.substr(sz), &sz);
 
 		file.close();
 	}
 
 	//set dynamic texts
-	levelStr.setAddText(std::to_string(level));
-	objStr.setAddText(std::to_string(objScore));
-	movesStr.setAddText(std::to_string(numMoves));
-	scoreStr.setAddText(std::to_string(score));
+	mLevelStr.setAddText(std::to_string(mLevel));
+	mObjStr.setAddText(std::to_string(mObjScore));
+	mMovesStr.setAddText(std::to_string(mNumMoves));
+	mScoreStr.setAddText(std::to_string(mScore));
 
-	//show level and objective
-	renderer->drawText(levelStr);
-	renderer->drawText(objStr);
+	//show mLevel and objective
+	mRenderer->drawText(mLevelStr);
+	mRenderer->drawText(mObjStr);
 
 	//show left moves
-	renderer->drawText(movesStr);
+	mRenderer->drawText(mMovesStr);
 
 	//show score
-	renderer->drawText(scoreStr);
+	mRenderer->drawText(mScoreStr);
 }
 
 void Game::saveGame()
 {
+	//save current level is user has completed it & the score
 	std::ofstream file;
 	file.open(SAVE_FILE, std::ios::out | std::ios::app);
-	file << level << " " << score << std::endl;
+	file << mLevel << " " << mScore << std::endl;
 	file.close();
 }
 
+//reset the Game state
 void Game::reset()
 {
-	score = 0;
+	mScore = 0;
 	loadLevel();
 }

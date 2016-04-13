@@ -5,8 +5,6 @@
 #include "Game.h"
 #include "Timer.h"
 
-const int MS_PER_UPDATE = 2000;
-
 const int SCREEN_FPS = 60;
 const int SCREEN_TICK_PER_FRAME = 1000 / SCREEN_FPS;
 
@@ -16,7 +14,7 @@ int main(int, char**)
 {
 	Game::instance().init();
 
-	//Main loop flag
+	//Quit event
 	bool quit = false;
 
 	//Event handler
@@ -25,11 +23,8 @@ int main(int, char**)
 	//The frames per second timer
 	Timer fpsTimer;
 
-	//The frames per second cap timer
-	Timer capTimer;
-
-	Board& board = Game::instance().getBoard();
-	board.generate();
+	//The frames per loop timer
+	Timer loopTimer;
 
 	//Start counting frames per second
 	int countedFrames = 0;
@@ -37,12 +32,12 @@ int main(int, char**)
 
 	while (!quit)
 	{
-		//Start cap timer
-		capTimer.start();
+		//Start loop timer
+		loopTimer.start();
 
 		while (SDL_PollEvent(&e) != 0)
 		{
-			//User requests quit
+			//User quit the game
 			if (e.type == SDL_QUIT)
 			{
 				quit = true;
@@ -58,21 +53,18 @@ int main(int, char**)
 				}
 		}
 
-		//Calculate and correct fps
+		//Calculate fps
 		float avgFPS = countedFrames / (fpsTimer.getTicks() / 1000.f);
-		if (avgFPS > 2000000)
-		{
-			avgFPS = 0;
-		}
+		std::cerr << avgFPS << std::endl;
 
-		//std::cerr << avgFPS << std::endl;
-
+		//Update game state & render 
 		Game::instance().update();
 
+		//Update frame counter
 		++countedFrames;
 
 		//If frame finished early
-		int frameTicks = capTimer.getTicks();
+		int frameTicks = loopTimer.getTicks();
 		if (frameTicks < SCREEN_TICK_PER_FRAME)
 		{
 			//Wait remaining time

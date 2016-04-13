@@ -39,11 +39,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>D:\Personal\SDL2_ttf-2.0.14\include;D:\Personal\SDL2_image-2.0.1\include;D:\Personal\SDL2-2.0.4\include;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>
+    <IncludePath>D:\VS_Coursera\MyGame\MyGame\SDL2-2.0.4\include;D:\VS_Coursera\MyGame\MyGame\SDL2_ttf-2.0.14\include;D:\VS_Coursera\MyGame\MyGame\SDL2_image-2.0.1\include;D:\Personal\SDL2_ttf-2.0.14\include;D:\Personal\SDL2_image-2.0.1\include;D:\Personal\SDL2-2.0.4\include;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>
     <LibraryPath>D:\Personal\SDL2_ttf-2.0.14\lib\x86;D:\Personal\SDL2_image-2.0.1\lib\x86;D:\Personal\SDL2-2.0.4\lib\x86;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\lib\x86;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <IncludePath>C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>
+    <IncludePath>D:\VS_Coursera\MyGame\MyGame\SDL2-2.0.4\include;D:\VS_Coursera\MyGame\MyGame\SDL2_ttf-2.0.14\include;D:\VS_Coursera\MyGame\MyGame\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include;C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\violeta\Downloads\SDL2_ttf-devel-2.0.14-VC\SDL2_ttf-2.0.14\lib\x86;C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\lib\x86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -51,11 +51,11 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>D:\VS_Coursera\Include;C:\Users\violeta\Downloads\SDL2-devel-2.0.4-VC\SDL2-2.0.4\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\violeta\Downloads\SDL2-devel-2.0.4-VC\SDL2-2.0.4\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>D:\VS_Coursera\MyGame\MyGame\SDL2-2.0.4\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
@@ -67,19 +67,21 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>D:\VS_Coursera\Include;C:\Users\violeta\Downloads\SDL2-devel-2.0.4-VC\SDL2-2.0.4\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>C:\Users\violeta\Downloads\SDL2-devel-2.0.4-VC\SDL2-2.0.4\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>D:\VS_Coursera\MyGame\MyGame\SDL2-2.0.4\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2_image.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AnimationManager.cpp" />
     <ClCompile Include="Board.cpp" />
+    <ClCompile Include="Cell.cpp" />
     <ClCompile Include="Event.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="Renderer.cpp" />
@@ -87,12 +89,17 @@
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AnimationManager.h" />
     <ClInclude Include="Board.h" />
-    <ClInclude Include="C:\Users\violeta\Downloads\SDL2_image-devel-2.0.1-VC\SDL2_image-2.0.1\include\SDL_image.h" />
+    <ClInclude Include="Cell.h" />
     <ClInclude Include="Event.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="IRenderable.h" />
     <ClInclude Include="Renderer.h" />
+    <ClInclude Include="SDL2-2.0.4\include\SDL.h" />
+    <ClInclude Include="SDL2-2.0.4\include\SDL_main.h" />
+    <ClInclude Include="SDL2_image-2.0.1\include\SDL_image.h" />
+    <ClInclude Include="SDL2_ttf-2.0.14\include\SDL_ttf.h" />
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

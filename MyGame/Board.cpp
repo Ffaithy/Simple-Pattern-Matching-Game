@@ -7,64 +7,10 @@
 #include <utility>
 #include <vector>
 
-const std::string Board::Cell::NAME_PREFIX = "./assets/items/ball_";
-const std::string Board::Cell::NAME_SUFIX = ".png";
-const std::string Board::Cell::SELECTOR = "./assets/items/selector.png";
-
-const int Board::Cell::DEFAULT_WIDTH = 60;
-const int Board::Cell::DEFAULT_HEIGHT = 60;
-const int Board::Cell::EMPTY = -1;
-
-int Board::Cell::width = Board::Cell::DEFAULT_WIDTH;
-int Board::Cell::height = Board::Cell::DEFAULT_HEIGHT;
-
 int Board::STEP = 0;
 const int Board::OFFSET_Y = 100;
 const int Board::OFFSET_X = 50;
 Board::State Board::STATE = State::STATE_NONE;
-
-void Board::Cell::render() const
-{
-	Renderer& renderer = Game::instance().getRenderer();
-
-	if (explode)
-	{
-		if (Board::STEP == 0)
-		{
-			renderer.setTextureAlpha(getName(), Board::INIT_ALPHA);
-			renderer.setTextureBlendModeAlpha(getName());
-		}
-		else
-			if (Board::STEP == NUM_EXPLODE_STEPS)
-			{
-				renderer.setTextureBlendModeNone(getName());
-				explode = false;
-				type = EMPTY;
-			}
-			else
-			{
-				renderer.setTextureBlendModeAlpha(getName());
-				renderer.setTextureAlpha(getName(), Board::INIT_ALPHA - Board::STEP * Board::EXPLODE_DIFF_STEP);
-			}
-	}
-	else
-	{
-		renderer.setTextureBlendModeNone(getName());
-	}
-
-	if (type != EMPTY)
-	{
-		//draw image
-		renderer.drawObject(ObjRenderable{ getName(), 0, 0, OFFSET_X + x, OFFSET_Y + y, Cell::getWidth(), Cell::getHeight() }, true);
-
-		//render selection
-		if (isSelected())
-		{
-			renderer.drawObject(ObjRenderable{ Cell::SELECTOR, 0, 0, OFFSET_X + x, OFFSET_Y + y, Cell::getWidth(), Cell::getHeight() }, false);
-		}
-	}
-
-}
 
 Board::Board(const std::vector<int>& probes, int width, int height) :
 		mProbes(probes),
@@ -74,7 +20,9 @@ Board::Board(const std::vector<int>& probes, int width, int height) :
 		mSelected1(nullptr),
 		mBlockInput(false)
 {
+	//Initialize the components
 	initRenderer();
+	mAnimationManager.setMoveStep(SWAP_DIFF_STEP);
 };
 
 void Board::setProbes(const std::vector<int>& newProbes)
@@ -85,16 +33,18 @@ void Board::setProbes(const std::vector<int>& newProbes)
 
 void Board::generate()
 {
+	//Initialize random seed for generating values
 	int sz = mProbes.size();
 	srand(time(0));
 
 	mGenerator.resize(width);
 
-	// set up sizes
 	mCells.resize(height);
+
 	for (int i = 0; i < height; ++i)
 		mCells[i].resize(width);
 
+	//Populate the cells with random values
 	for (int i = 0; i < height; ++i)
 		for (int j = 0; j < width; ++j)
 		{
@@ -122,18 +72,21 @@ void Board::generate()
 					checkSimY = true;
 			}
 
+			//check for macthes until a valid value is obtained
 			int number = -1;
 			do
 			{
 				number = rand() % sz;
-			} while ((checkSimX && (number == prevX)) || (checkSimY && (number == prevY)) );
+			} while ((checkSimX && (mProbes[number] == prevX)) || (checkSimY && (mProbes[number] == prevY)));
 
-			mCells[i][j] = { mProbes[number], j * Cell::getHeight(), i * Cell::getWidth() };
+			//store the new value
+			mCells[i][j] = { mProbes[number], j * mCells[i][j].getDefaultHeight(), i * mCells[i][j].getDefaultWidth() };
 		}
 }
 
 void Board::initRenderer() const
 {
+	//load the necessary art
 	Renderer& renderer = Game::instance().getRenderer();
 	for (unsigned int i = 0; i < mProbes.size(); ++i)
 	{
@@ -145,94 +98,120 @@ void Board::initRenderer() const
 
 void Board::render()
 {
+	//render the first line
 	renderGenerator();
 
+	//render the board
 	for (int i = 0; i < width; ++i)
 		for (int j = 0; j < height; ++j)
 		{
-			mCells[i][j].render();
+			mCells[i][j].render(STEP, NUM_EXPLODE_STEPS);
 		}
 
 }
 
 void Board::renderGenerator()
 {
-	Renderer& renderer = Game::instance().getRenderer();
-
 	//first line
 	for (int j = 0; j < width; ++j)
 		if (mGenerator[j].getType() != Cell::EMPTY)
 		{
 			int x, y;
-			computeCoordinates(&mGenerator[j], x, y);
-			renderer.drawObject(ObjRenderable{ mGenerator[j].getName(), 0, (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP, OFFSET_X + x, OFFSET_Y + 0, Cell::getWidth(), Cell::getHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP });
+			mAnimationManager.computeNextCoordinates(&mGenerator[j], x, y);
+			mGenerator[j].renderWithDynamicParams(0, (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP, x, 0, mGenerator[j].getDefaultWidth(), mGenerator[j].getDefaultHeight() - (NUM_SWAP_STEPS - STEP) * SWAP_DIFF_STEP);
 		}
 
 }
 
+//The only possible action is Mouse click
+//TODO extend the user actions
 void Board::handleInput(int x, int y)
 {
 	if (mBlockInput)
 		return;
 
-	Renderer& renderer = Game::instance().getRenderer();
-
-	//find the cell that the user clicked on
-	int cCol = (x - OFFSET_X) / Cell::getWidth();
-	int cRow = (y - OFFSET_Y) / Cell::getHeight();
-	std::cerr << cCol << " " << cRow << std::endl;
-
-	//new selection, no previous selection exists
-	if (mSelected0 == nullptr)
+	if (STATE == State::STATE_NONE)
 	{
-		mSelected0 = &mCells[cRow][cCol];
-		mCells[cRow][cCol].setSelected(true);
-	
-		std::cerr << "SELECTION " << cCol << " " << cRow << std::endl;
-	}
-	else
-	//handle the case when one cell is already selected
-	{
-		int oCol = mSelected0->getCol();
-		int oRow = mSelected0->getRow();
+		Renderer& renderer = Game::instance().getRenderer();
 
-		//move selection
-		if (std::abs(oCol - cCol) + std::abs(oRow - cRow) > 1)
+		//find the cell that the user clicked on
+		int cCol = (x - OFFSET_X) / Cell::getDefaultWidth();
+		int cRow = (y - OFFSET_Y) / Cell::getDefaultHeight();
+		std::cerr << cCol << " " << cRow << std::endl;
+
+		//new selection, no previous selection exists
+		if (mSelected0 == nullptr)
 		{
-			//clear old selection
-			mCells[oRow][oCol].setSelected(false);
-			
-			//select the new cell
 			mSelected0 = &mCells[cRow][cCol];
 			mCells[cRow][cCol].setSelected(true);
+
+			std::cerr << "SELECTION " << cCol << " " << cRow << std::endl;
 		}
 		else
-			//the cell user clicked on is already selected, so unselect it
-			if (std::abs(cRow - oRow) + std::abs(cCol - oCol) == 0)
-			{
-				//clear old selection
-				mCells[cRow][cCol].setSelected(false);
-				mSelected0 = nullptr;
-			}
-			else
-			//user selected a valid cell, begin swap animation & block input
-			{
-				mBlockInput = true;
-				mSelected1 = &mCells[cRow][cCol];
+			//handle the case when one cell is already selected
+		{
+			int oCol = mSelected0->getCol();
+			int oRow = mSelected0->getRow();
 
+			//move selection
+			if (std::abs(oCol - cCol) + std::abs(oRow - cRow) > 1)
+			{
 				//clear old selection
 				mCells[oRow][oCol].setSelected(false);
 
-				//swap
-				beginSwapAnimation();
+				//select the new cell
+				mSelected0 = &mCells[cRow][cCol];
+				mCells[cRow][cCol].setSelected(true);
 			}
+			else
+				//the cell user clicked on is already selected, so unselect it
+				if (std::abs(cRow - oRow) + std::abs(cCol - oCol) == 0)
+				{
+					//clear old selection
+					mCells[cRow][cCol].setSelected(false);
+					mSelected0 = nullptr;
+				}
+				else
+				//user selected a valid cell, begin swap animation & block input
+				{
+					mBlockInput = true;
+					mSelected1 = &mCells[cRow][cCol];
+
+					//clear old selection
+					mCells[oRow][oCol].setSelected(false);
+
+					//begin swap animation
+					STEP = 0;
+					STATE = State::STATE_SWAP;
+
+					mAnimationManager.beginSwapAnimation(mSelected0, mSelected1);
+				}
+		}
 	}
 }
 
 void Board::update()
 {
-	Renderer& renderer = Game::instance().getRenderer();
-	if (STATE == State::STATE_SWAP)
+	//update the Board state, based on Step 
+	switch (STATE)
+	{
+	//process a valid swap 
+	case State::STATE_SWAP:
+		{
+			if (STEP < NUM_SWAP_STEPS)
+			{
+				STEP++;
+				continueSwapAnimation();
+			}
+			else
+			{
+				endSwap();
+				STEP = 0;
+			}
+		break;
+		}
+	//process an invalid swap
+	case State::STATE_INVALID_SWAP:
 	{
 		if (STEP < NUM_SWAP_STEPS)
 		{
@@ -241,23 +220,6 @@ void Board::update()
 		}
 		else
 		{
-			endSwap();
-			STEP = 0;
-			//STATE = State::STATE_NONE;
-		}
-		return;
-	}
-
-	if (STATE == State::STATE_INVALID_SWAP)
-	{
-		if (STEP < NUM_SWAP_STEPS)
-		{
-			STEP++;
-			continueSwapAnimation();
-		}
-		else
-		{
-			//endSwap();
 			STEP = 0;
 			STATE = State::STATE_NONE;
 			mSelected0->setDirection(Direction::NONE);
@@ -267,10 +229,10 @@ void Board::update()
 
 			mBlockInput = false;
 		}
-		return;
+		break;
 	}
-
-	if (STATE == State::STATE_FILL)
+	//process a fall animation
+	case State::STATE_FALL:
 	{
 		if (STEP < NUM_SWAP_STEPS)
 		{
@@ -283,6 +245,7 @@ void Board::update()
 			{
 				STEP = 0;
 
+				//after the fall finises, check for new explosions
 				if (boardHasMatches())
 				{
 					STATE = State::STATE_EXPLODE;
@@ -290,6 +253,7 @@ void Board::update()
 				else
 				{
 					STATE = State::STATE_NONE;
+					//notify the Game that animation is completed, to check the state
 					EventCheckState ev;
 					Game::instance().onNotify(&ev);
 					mBlockInput = false;
@@ -297,108 +261,63 @@ void Board::update()
 			}
 			else
 			{
+				//continue falling if necessary
+				//the falling takes place line by line
 				STEP = 0;
 				startFall();
 			}
 		}
 
-		return;
+		break;
 	}
 
-	//update state
-	if (STATE == State::STATE_EXPLODE)
+	//process explosions
+	case State::STATE_EXPLODE:
 	{
 		if (STEP < NUM_EXPLODE_STEPS)
 			Board::STEP++;
 		else
 		{
-			//STATE = State::STATE_NONE;
-			STATE = State::STATE_FILL;
+			//after an explosion, the board must be filled with new values
+			STATE = State::STATE_FALL;
 			Board::STEP = 0;
 			startFall();
 		}
+
+		break;
+	}
+	default:
+		break;
 	}
 }
 
-bool Board::isSwapValid() const
+//check if the swap generates an explosion
+bool Board::isSwapValid()
 {
-	return (isPieceInARowMatch(mSelected0->getRow(), mSelected0->getCol(), mSelected0->getType()) ||
-		isPieceInARowMatch(mSelected1->getRow(), mSelected1->getCol(), mSelected1->getType()) ||
-		isPieceInAColMatch(mSelected0->getRow(), mSelected0->getCol(), mSelected0->getType()) ||
-		isPieceInAColMatch(mSelected1->getRow(), mSelected1->getCol(), mSelected1->getType()));
+	int count = 0;
 
-}
+	int oRow = mSelected0->getRow();
+	int oCol = mSelected0->getCol();
+	int cRow = mSelected1->getRow();
+	int cCol = mSelected1->getCol();
 
-bool Board::isPieceInARowMatch(int row, int col, int type) const
-{
-	int x = row;
-	int y = col;
-	int count = 1;
 	bool valid = false;
 
-	//check col
-	y--;
-	while (y >= 0 && mCells[x][y].getType() == type)
-	{
-		count++;
-		if (count >= NUM_MATCHES)
-		{
-			return true;
-		}
-		y--;
-	}
-
-	//reset y
-	y = col;
-	y++;
-	while (y < width && mCells[x][y].getType() == type)
-	{
-		count++;
-		if (count >= NUM_MATCHES)
-		{
-			return true;
-		}
-		y++;
-	}
+	//the cells will be marked for explosion
+	//it is sufficient to check the selected cells' rows and columns
+	if (rowHasMatches(oRow))
+		valid = true;
+	if (rowHasMatches(cRow))
+		valid = true;
+	if (colHasMatches(oCol))
+		valid = true;
+	if (colHasMatches(cCol))
+		valid = true;
 
 	return valid;
 }
 
-bool Board::isPieceInAColMatch(int row, int col, int type) const
-{
-	int x = row;
-	int y = col;
-	int count = 1;
-	bool valid = false;
-
-	//check line
-	x--;
-	while (x >= 0 && mCells[x][y].getType() == type)
-	{
-		count++;
-		if (count >= NUM_MATCHES)
-		{
-			return true;
-		}
-		x--;
-	}
-
-	//reset y
-	x = row;
-	x++;
-	while (x < height && mCells[x][y].getType() == type)
-	{
-		count++;
-		if (count >= NUM_MATCHES)
-		{
-			return true;
-		}
-		x++;
-	}
-
-	return valid;
-}
-
+//check if a row has matches
 bool Board::rowHasMatches(int row)
 {
 	std::cerr << "rowHasMatches " << row << std::endl;
@@ -421,13 +340,16 @@ bool Board::rowHasMatches(int row)
 			}
 		}
 
+		//mark the matched cells
 		if (count >= NUM_MATCHES && type != Cell::EMPTY)
 		{
+			//handle special case when finalIdx reaches the end
 			for (int i = startIdx; i < ((type == mCells[row][finalIdx].getType() && (finalIdx == width - 1)) ? (finalIdx + 1) : finalIdx); ++i)
 			{
 				std::cerr << "EXPLODE [ " << row << " ][ " << i << " ]" << std::endl;
 				mCells[row][i].setExplode(true);
 			}
+			//store the line for exploding
 			mLinesToExplode.insert(row);
 				
 			std::cerr << "INSERTING LINE " << row << std::endl;
@@ -445,6 +367,7 @@ bool Board::rowHasMatches(int row)
 	return hasMatch;
 }
 
+//check if a column has matches
 bool Board::colHasMatches(int col)
 {
 	std::cerr << "colHasMatches " << col << std::endl;
@@ -467,13 +390,16 @@ bool Board::colHasMatches(int col)
 			}
 		}
 
+		//mark the matched cells
 		if (count >= NUM_MATCHES && type != Cell::EMPTY)
 		{
+			//handle special case when finalIdx reaches the end
 			for (int i = startIdx; i < ((type == mCells[finalIdx][col].getType() && (finalIdx == height - 1)) ? (finalIdx + 1) : finalIdx); ++i)
 			{
 				std::cerr << "EXPLODE [ " << i << " ][ " << col << " ]" << std::endl;
 				mCells[i][col].setExplode(true);
 			}
+			//store the column
 			mColsToExplode.insert(col);
 
 			std::cerr << "INSERTING COL " << col << std::endl;
@@ -491,6 +417,7 @@ bool Board::colHasMatches(int col)
 	return hasMatch;
 }
 
+//this function gets called after the falling animation ends and checks for a new explosion through the entire board
 bool Board::boardHasMatches()
 {
 	bool explode = false;
@@ -512,6 +439,7 @@ bool Board::boardHasMatches()
 	return explode;
 }
 
+//When computing the score, only the stored lines and columns are checked
 void Board::computeScore()
 {
 	int points = 0;
@@ -524,7 +452,6 @@ void Board::computeScore()
 			if (mCells[it][i].isExplode())
 			{
 				points++;
-				std::cerr << "EXPLODE !!!! " << it << " " << i << std::endl;
 				STATE = State::STATE_EXPLODE;
 				Board::STEP = 0;
 			}
@@ -537,137 +464,87 @@ void Board::computeScore()
 			if (mCells[i][it].isExplode())
 			{
 				points++;
-				std::cerr << "EXPLODE !!!! " << i << " " << it << std::endl;
 				STATE = State::STATE_EXPLODE;
 				Board::STEP = 0;
 			}
 	}
 	mColsToExplode.clear();
 
+	//Notifies the game to update the user score
 	EventScore e(points);
 	Game::instance().onNotify(&e);
 }
 
 //Animations
-void Board::beginSwapAnimation()
-{
-	std::cerr << "BEGIN SWAP " << std::endl;
-
-	if (mSelected0 == nullptr && mSelected1 == nullptr)
-		return;
-
-	STEP = 0;
-	STATE = State::STATE_SWAP;
-
-	if (mSelected0->getRow() == mSelected1->getRow()) ///line swap
-	{
-		Cell *min = (mSelected0->getCol() < mSelected1->getCol()) ? mSelected0 : mSelected1;
-		Cell *max = (mSelected0->getCol() < mSelected1->getCol()) ? mSelected1 : mSelected0;
-
-		min->setDirection(Direction::RIGHT);
-		max->setDirection(Direction::LEFT);
-	}
-	else
-		if (mSelected0->getCol() == mSelected1->getCol()) ///col swap
-		{
-			Cell *min = (mSelected0->getRow() < mSelected1->getRow()) ? mSelected0 : mSelected1;
-			Cell *max = (mSelected0->getRow() < mSelected1->getRow()) ? mSelected1 : mSelected0;
-
-			min->setDirection(Direction::DOWN);
-			max->setDirection(Direction::UP);
-		}
-}
-
 void Board::continueSwapAnimation() const
 {
 	std::cerr << "ANIMATE SWAP " << std::endl;
-
-	Renderer& renderer = Game::instance().getRenderer();
 	
 	//compute new coordinates
-	int x0, y0, x1, y1;
-	computeCoordinates(mSelected0, x0, y0);
-	computeCoordinates(mSelected1, x1, y1);
-
-	mSelected0->setX(x0);
-	mSelected0->setY(y0);
-	mSelected1->setX(x1);
-	mSelected1->setY(y1);
+	mAnimationManager.continueMovement(mSelected0);
+	mAnimationManager.continueMovement(mSelected1);
 }
 
 void Board::endSwap()
 {
-	std::cerr << "end SWAP " << std::endl;
+	std::cerr << "END SWAP " << std::endl;
 
-	bool v = isSwapValid();
-
-	std::string s = v ? "true" : "false";
-	std::cerr << s << std::endl;
-
+	//do the actual swap
 	int oRow = mSelected0->getRow();
 	int oCol = mSelected0->getCol();
 	int cRow = mSelected1->getRow();
 	int cCol = mSelected1->getCol();
 
-	if (v)
+	std::swap(mCells[oRow][oCol], mCells[cRow][cCol]);
+
+	mCells[oRow][oCol].setX(oCol * Cell::getDefaultHeight());
+	mCells[oRow][oCol].setY(oRow * Cell::getDefaultWidth());
+	mCells[cRow][cCol].setX(cCol * Cell::getDefaultHeight());
+	mCells[cRow][cCol].setY(cRow * Cell::getDefaultWidth());
+
+	//check is swap generates some matches
+	bool valid = isSwapValid();
+
+	std::string s = valid ? "true" : "false";
+	std::cerr << s << std::endl;
+
+	if (valid)
 	{
+		//is swap is valid, decrease the number of moves
 		EventMove event;
 		Game::instance().onNotify(&event);
-
-		//swap
-		std::swap(mCells[oRow][oCol], mCells[cRow][cCol]);
-
-		mCells[oRow][oCol].setX(oCol * Cell::getHeight());
-		mCells[oRow][oCol].setY(oRow * Cell::getWidth());
-		mCells[cRow][cCol].setX(cCol * Cell::getHeight());
-		mCells[cRow][cCol].setY(cRow * Cell::getWidth());
-
-		rowHasMatches(oRow);
-		if (oRow != cRow)
-			rowHasMatches(cRow);
-		colHasMatches(oCol);
-		if (oCol != cCol)
-			colHasMatches(cCol);
 
 		STATE = State::STATE_EXPLODE;
 		Board::STEP = 0;
 
+		//clear selections
 		mSelected0 = nullptr;
 		mSelected1 = nullptr;
 	}
 	else
 	{
+		//swap is invalid
 		Board::STEP = 0;
 		STATE = State::STATE_INVALID_SWAP;
 
-		switch (mSelected0->getDirection())
-		{
-		case Direction::UP:
-			mSelected0->setDirection(Direction::DOWN);
-			mSelected1->setDirection(Direction::UP);
-			break;
-		case Direction::DOWN:
-			mSelected0->setDirection(Direction::UP);
-			mSelected1->setDirection(Direction::DOWN);
-			break;
-		case Direction::LEFT:
-			mSelected0->setDirection(Direction::RIGHT);
-			mSelected1->setDirection(Direction::LEFT);
-			break;
-		case Direction::RIGHT:
-			mSelected0->setDirection(Direction::LEFT);
-			mSelected1->setDirection(Direction::RIGHT);
-			break;
-		default:
-			;
-		}
+		//swap back the cells
+		std::swap(mCells[oRow][oCol], mCells[cRow][cCol]);
 
+		mCells[oRow][oCol].setX(cCol * Cell::getDefaultHeight());
+		mCells[oRow][oCol].setY(cRow * Cell::getDefaultWidth());
+		mCells[cRow][cCol].setX(oCol * Cell::getDefaultHeight());
+		mCells[cRow][cCol].setY(oRow * Cell::getDefaultWidth());
+
+		mAnimationManager.invertDirection(mSelected0);
+		mAnimationManager.invertDirection(mSelected1);
 	}
 }
 
 void Board::startFall()
 {
-	std::cerr << "START FILL" << std::endl;
+	std::cerr << "START FALL" << std::endl;
+
+	//Initialize the falling animation
  	for (int i = height - 2; i >= 0; --i)
 		for (int j = 0; j < width; ++j)
 		{
@@ -685,7 +562,7 @@ void Board::startFall()
 	{
 		if (mCells[0][j].getDirection() == Direction::DOWN || mCells[0][j].getType() == Cell::EMPTY)
 		{
-			mGenerator[j] = { mProbes[rand() % mProbes.size()], j * Cell::getWidth(), -1 * Cell::getHeight() };
+			mGenerator[j] = { mProbes[rand() % mProbes.size()], j * Cell::getDefaultWidth(), -1 * Cell::getDefaultHeight() };
 			mGenerator[j].setDirection(Direction::DOWN);
 		}
 	}
@@ -693,8 +570,7 @@ void Board::startFall()
 
 void Board::animateFall()
 {
-	std::cerr << "ANIMATE FILL" << std::endl;
-	Renderer& renderer = Game::instance().getRenderer();
+	std::cerr << "ANIMATE FALL" << std::endl;
 
 	for (int i = height - 1; i >= 0; --i)
 		for (int j = 0; j < width; ++j)
@@ -703,12 +579,8 @@ void Board::animateFall()
 		{
 				if (i != height - 1 && (mCells[i + 1][j].getDirection() == Direction::DOWN || (mCells[i + 1][j].getType() == Cell::EMPTY)))
 				{
-					int x, y;
-					computeCoordinates(&mCells[i][j], x, y);
-
-					mCells[i][j].setX(x);
-					mCells[i][j].setY(y);
-
+					//use the Animation component to update the positions of the cells on screen
+					mAnimationManager.continueMovement(&mCells[i][j]);
 				}
 				else
 				{	
@@ -720,70 +592,48 @@ void Board::animateFall()
 
 bool Board::endFall()
 {
-	std::cerr << "END FILL" << std::endl;
+	std::cerr << "END FALL" << std::endl;
 
+	//the falling animation is complete
 	for (int i = height - 1; i >= 0; --i)
 		for (int j = 0; j < width; ++j)
 		{
-		if (i == 0 && (mCells[i][j].getDirection() == Direction::DOWN || mCells[i][j].getType() == Cell::EMPTY))
-		{
-			mCells[i][j].setType(mGenerator[j].getType());
-			mCells[i][j].setDirection(Direction::NONE);
-			mCells[i][j].setX(j * Cell::getWidth());
-			mCells[i][j].setY(i * Cell::getHeight());
-
-			mGenerator[j].setType(Cell::EMPTY);
-			mGenerator[j].setX(j * Cell::getWidth());
-			mGenerator[j].setY(-1 * Cell::getHeight());
-		}
-		else
-			if ((i > 0) && (mCells[i][j].getDirection() == Direction::DOWN || mCells[i][j].getType() == Cell::EMPTY))
+			//Update the cells with the new values
+			if (i == 0 && (mCells[i][j].getDirection() == Direction::DOWN || mCells[i][j].getType() == Cell::EMPTY))
 			{
-				mCells[i][j].setType(mCells[i - 1][j].getType());
+				mCells[i][j].setType(mGenerator[j].getType());
 				mCells[i][j].setDirection(Direction::NONE);
-				mCells[i][j].setX(j * Cell::getWidth());
-				mCells[i][j].setY(i * Cell::getHeight());
-			}
-		}
+				mCells[i][j].setX(j * Cell::getDefaultWidth());
+				mCells[i][j].setY(i * Cell::getDefaultHeight());
 
+				mGenerator[j].setType(Cell::EMPTY);
+				mGenerator[j].setX(j * Cell::getDefaultWidth());
+				mGenerator[j].setY(-1 * Cell::getDefaultHeight());
+			}
+			else
+				if ((i > 0) && (mCells[i][j].getDirection() == Direction::DOWN || mCells[i][j].getType() == Cell::EMPTY))
+				{
+					mCells[i][j].setType(mCells[i - 1][j].getType());
+					mCells[i][j].setDirection(Direction::NONE);
+					mCells[i][j].setX(j * Cell::getDefaultWidth());
+					mCells[i][j].setY(i * Cell::getDefaultHeight());
+				}
+			}
+
+	//check if we need falling to happen again
+	//the falling animation processes line by line
 	for (int i = height - 1; i >= 0; --i)
 		for (int j = 0; j < width; ++j)
 		{
-		if (i == 0)
-		{
-			if (mCells[i][j].getType() == Cell::EMPTY)
-				return true;
-		}
-		else
-			if (mCells[i][j].getType() == Cell::EMPTY && mCells[i - 1][j].getType() != Cell::EMPTY)
-				return true;
-		}
+			if (i == 0)
+			{
+				if (mCells[i][j].getType() == Cell::EMPTY)
+					return true;
+			}
+			else
+				if (mCells[i][j].getType() == Cell::EMPTY && mCells[i - 1][j].getType() != Cell::EMPTY)
+					return true;
+			}
 
 	return false;
-}
-
-
-void Board::computeCoordinates(const Cell* cell, int& x, int& y) const
-{
-	switch (cell->getDirection())
-	{
-	case Direction::UP:
-		y = cell->getY() - SWAP_DIFF_STEP;
-		x = cell->getX();
-		break;
-	case Direction::DOWN:
-		y = cell->getY() + SWAP_DIFF_STEP;
-		x = cell->getX();
-		break;
-	case Direction::LEFT:
-		y = cell->getY();
-		x = cell->getX() - SWAP_DIFF_STEP;
-		break;
-	case Direction::RIGHT:
-		y = cell->getY();
-		x = cell->getX() + SWAP_DIFF_STEP;
-		break;
-	default:
-		;
-	}
 }

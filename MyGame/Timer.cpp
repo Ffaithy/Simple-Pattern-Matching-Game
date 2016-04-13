@@ -39,7 +39,6 @@ void Timer::stop()
 
 void Timer::pause()
 {
-	//If the timer is running and isn't already paused
 	if (mStarted && !mPaused)
 	{
 		//Pause the timer
@@ -53,7 +52,6 @@ void Timer::pause()
 
 void Timer::unpause()
 {
-	//If the timer is running and paused
 	if (mStarted && mPaused)
 	{
 		//Unpause the timer

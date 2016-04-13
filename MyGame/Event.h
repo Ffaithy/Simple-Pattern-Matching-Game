@@ -1,6 +1,10 @@
 #ifndef EVENT_H
 #define EVENT_H
 
+//Game Event for updating its state
+//These events are sent from the Board to the game instance
+//The event has one optional parameter
+
 class Event
 {
 public:

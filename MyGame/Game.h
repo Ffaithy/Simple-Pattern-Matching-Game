@@ -7,26 +7,29 @@
 
 class Game
 {
-	//events for updating Game state
+	//Events for updating Game state
 	friend class EventMove;
 	friend class EventScore;
 	friend class EventCheckState;
 
 private:
 	Game() = default;
+	Game(const Game&) = delete;
+	Game& operator=(Game) = delete;
 
 public:
 	static Game& instance() { return _instance; }
 
-	Renderer& getRenderer() { return *renderer; }
-	Board& getBoard() { return *board; }
+	//Service locator for accesing the Renderer
+	Renderer& getRenderer() { return *mRenderer; }
 
 	//getters for Game members
-	int getScore() const { return score; }
-	int getLevel() const { return level; }
-	int getNumMoves() const  { return numMoves; }
-	bool getStop() const { return stop; }
+	int getScore() const { return mScore; }
+	int getLevel() const { return mLevel; }
+	int getNumMoves() const  { return mNumMoves; }
+	bool getStop() const { return mStop; }
 
+	//Methods to modify the Game state
 	void onNotify(Event* ev);
 	void init();
 	void close();
@@ -44,34 +47,35 @@ private:
 	static const std::string BACKGROUND_IMG;
 	static const std::string FONT_TYPE;
 
-	//static members for the texts 
-	static TextRenderable levelStr;
-	static TextRenderable objStr;
-	static TextRenderable movesStr;
-	static TextRenderable scoreStr;
-	static TextRenderable resultStr;
-	static TextRenderable tryAgainStr;
+	//Static members for the texts that are rendered in the window
+	static TextRenderable mLevelStr;
+	static TextRenderable mObjStr;
+	static TextRenderable mMovesStr;
+	static TextRenderable mScoreStr;
+	static TextRenderable mResultStr;
+	static TextRenderable mTryAgainStr;
 
-	//static member for the game state
-	static int score;
-	static int numMoves;
-	static int numInitMoves;
-	static int level;
-	static int objScore;
-	static bool stop;
+	//Static members for the game state
+	static int mScore;
+	static int mNumMoves;
+	static int mNumInitMoves;
+	static int mLevel;
+	static int mObjScore;
+	static bool mStop;
 
+	Renderer* mRenderer;
+	Board* mBoard;
 
-	Renderer* renderer;
-	Board* board;
-
+	//private methods for updating the Game state
 	void updateScore(int points);
 	void updateNumMoves();
 	void checkState();
 
+	//private methods for loading/saving the Game state
 	void saveGame();
 	void loadGame();
 	void loadLevel();
-	void continueGame() { stop = false; }
+	void continueGame() { mStop = false; }
 	void reset();
 };
 

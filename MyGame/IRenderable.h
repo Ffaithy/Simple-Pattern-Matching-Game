@@ -3,6 +3,7 @@
 
 #include <string>
 
+//Only objects that are accepted by renderer
 class ObjRenderable
 {
 	friend class Renderer;
@@ -26,6 +27,7 @@ private:
 
 };
 
+//Object for storing text to be rendered on screen
 class TextRenderable
 {
 	friend class Renderer;
