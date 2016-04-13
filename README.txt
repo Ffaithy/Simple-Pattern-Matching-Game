@@ -4,7 +4,7 @@ URL:
 https://github.com/Ffaithy/Simple-Pattern-Matching-Game
 
 Technologies:
-The project is developes in C++, compiled with Visual Studio 2013.
+The project is developed in C++, compiled with Visual Studio 2013.
 Additional libraries: SDL2, SDL2_image (for loading PNGs), SDL2_ttf (for text rendering).
 
 Rules:
