@@ -76,16 +76,23 @@ void Game::checkState()
 	//update game state when user passed the current level
 	if (mScore >= mObjScore)
 	{
-		saveGame();
+		//save the Game and update the level only once
+		if (!mStop)
+		{
+			mStop = true;
+			saveGame();
+			mLevel++;
+
+			//user passed the level
+			//clean the old level textures
+			mRenderer->cleanTextures();
+
+			if (mLevel > MAX_LEVEL)
+				mLevel = 0;
+		}
 
 		mResultStr.setText("Level Completed");
 		mRenderer->drawText(mResultStr);
-		mStop = true;
-
-		mLevel++;
-
-		if (mLevel > MAX_LEVEL)
-			mLevel = 0;
 	}
 	else
 		//update game state when user is out of moves
@@ -254,7 +261,7 @@ void Game::loadLevel()
 
 void Game::saveGame()
 {
-	//save current level is user has completed it & the score
+	//save current level if user has completed it & the score
 	std::ofstream file;
 	file.open(SAVE_FILE, std::ios::out | std::ios::app);
 	file << mLevel << " " << mScore << std::endl;

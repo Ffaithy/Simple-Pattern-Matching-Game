@@ -74,11 +74,7 @@ bool Renderer::init()
 void Renderer::close()
 {
 	//Destroy textures
-	for (auto it : textures)
-	{
-		SDL_DestroyTexture(it.second);
-	}
-	textures.clear();
+	cleanTextures();
 
 	//Destroy font
 	TTF_CloseFont(sFont);
@@ -159,6 +155,16 @@ void Renderer::setTextureBlendModeNone(const std::string& name)
 			SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
 		}
 	}
+}
+
+void Renderer::cleanTextures()
+{
+	//Destroy textures
+	for (auto it : textures)
+	{
+		SDL_DestroyTexture(it.second);
+	}
+	textures.clear();
 }
 
 void Renderer::drawBackground(const std::string& name)

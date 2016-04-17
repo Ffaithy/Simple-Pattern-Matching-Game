@@ -24,6 +24,7 @@ public:
 	void setTextureAlpha(const std::string& name, uint8_t alpha);
 	void setTextureBlendModeAlpha(const std::string& name);
 	void setTextureBlendModeNone(const std::string& name);
+	void cleanTextures();
 	
 	//Object and text rendering
 	void drawBackground(const std::string& name);
